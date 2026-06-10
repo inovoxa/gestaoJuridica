@@ -4,6 +4,7 @@ import { prisma, type CaseStage } from "@legaltech/db";
 import { br } from "@legaltech/core";
 import { requireSession } from "@/lib/session";
 import { createCardForCase } from "@/lib/chatwoot";
+import { syncCaseFromDatajud } from "@/lib/datajud";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
@@ -67,4 +68,13 @@ export async function deleteCase(id: string) {
   await prisma.case.delete({ where: { id } });
   revalidatePath("/processos");
   redirect("/processos");
+}
+
+/** Sincroniza o processo com o DataJud (capa + movimentações + extração de prazos). */
+export async function syncDatajud(id: string) {
+  await requireSession();
+  const result = await syncCaseFromDatajud(id);
+  revalidatePath(`/processos/${id}`);
+  revalidatePath("/prazos");
+  return result;
 }

@@ -17,3 +17,4 @@ export const QUEUE_NAMES = {
 export const deadlinesQueue = new Queue(QUEUE_NAMES.deadlines, { connection });
 export const documentsQueue = new Queue(QUEUE_NAMES.documents, { connection });
 export const googleQueue = new Queue(QUEUE_NAMES.google, { connection });
+export const datajudQueue = new Queue(QUEUE_NAMES.datajud, { connection });

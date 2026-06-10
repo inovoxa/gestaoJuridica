@@ -3,16 +3,17 @@ import { requireRole } from "@/lib/session";
 import { PageHeader } from "@/components/ui/page-header";
 import { Field, FormActions } from "@/components/ui/form";
 import { ChatwootTest } from "@/components/chatwoot-test";
-import { saveChatwootConfig } from "./actions";
-import { MessagesSquare, CalendarDays } from "lucide-react";
+import { saveChatwootConfig, saveDatajudConfig } from "./actions";
+import { MessagesSquare, CalendarDays, Scale } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
 export default async function ConfigPage() {
   await requireRole("ADMIN_ESCRITORIO");
-  const [chatwoot, google] = await Promise.all([
+  const [chatwoot, google, datajud] = await Promise.all([
     prisma.chatwootIntegration.findUnique({ where: { id: "chatwoot" } }),
     prisma.googleIntegration.findUnique({ where: { id: "google" } }).catch(() => null),
+    prisma.datajudConfig.findUnique({ where: { id: "datajud" } }).catch(() => null),
   ]);
 
   return (
@@ -44,6 +45,39 @@ export default async function ConfigPage() {
             <FormActions cancelHref="/dashboard" submitLabel="Salvar" />
           </div>
         </form>
+      </div>
+
+      {/* DataJud */}
+      <div className="card p-6">
+        <div className="mb-4 flex items-center gap-2">
+          <Scale className="h-5 w-5 text-gold" strokeWidth={1.75} />
+          <h2 className="font-serif text-base font-semibold text-foreground">DataJud (CNJ)</h2>
+        </div>
+        <form action={saveDatajudConfig} className="space-y-4">
+          <Field
+            label="Chave da API DataJud"
+            name="apiKey"
+            type="password"
+            placeholder={datajud?.apiKeyEncrypted ? "•••••• (mantém a atual se vazio)" : "Chave pública DPJ/CNJ"}
+            helper="Chave pública do DataJud (datajud-wiki.cnj.jus.br). Armazenada criptografada."
+          />
+          <label className="flex items-center gap-2 text-sm text-muted">
+            <input type="checkbox" name="autoSync" defaultChecked={datajud?.autoSync ?? true} className="h-4 w-4 rounded border-border bg-bg accent-gold" />
+            Sincronização automática diária
+          </label>
+          <label className="flex items-center gap-2 text-sm text-muted">
+            <input type="checkbox" name="autoExtractDeadlines" defaultChecked={datajud?.autoExtractDeadlines ?? true} className="h-4 w-4 rounded border-border bg-bg accent-gold" />
+            Extrair prazos automaticamente das movimentações
+          </label>
+          <div className="flex justify-end">
+            <FormActions cancelHref="/dashboard" submitLabel="Salvar" />
+          </div>
+        </form>
+        {datajud?.lastSync && (
+          <p className="mt-3 text-xs text-muted">
+            Última sincronização: {datajud.lastSync.toLocaleString("pt-BR")} · {datajud.requestsThisMonth} requisição(ões) no mês
+          </p>
+        )}
       </div>
 
       {/* Google Calendar */}

@@ -1,8 +1,9 @@
 import { Worker } from "bullmq";
-import { connection, QUEUE_NAMES, deadlinesQueue, documentsQueue, googleQueue } from "./queues.js";
+import { connection, QUEUE_NAMES, deadlinesQueue, documentsQueue, googleQueue, datajudQueue } from "./queues.js";
 import { checkDeadlines } from "./jobs/check-deadlines.js";
 import { purgeExpiredDocuments } from "./jobs/purge-documents.js";
 import { pullGoogleCalendar } from "./jobs/google-pull.js";
+import { syncDatajud } from "./jobs/datajud-sync.js";
 
 /**
  * Processo worker: substitui os ir.cron do Odoo.
@@ -36,7 +37,16 @@ const googleWorker = new Worker(
   { connection },
 );
 
-for (const w of [deadlinesWorker, documentsWorker, googleWorker]) {
+const datajudWorker = new Worker(
+  QUEUE_NAMES.datajud,
+  async (job) => {
+    if (job.name === "sync-all") return syncDatajud();
+    return null;
+  },
+  { connection },
+);
+
+for (const w of [deadlinesWorker, documentsWorker, googleWorker, datajudWorker]) {
   w.on("completed", (job, result) => console.log(`✔ job ${job.queueName}/${job.name} ok`, result ?? ""));
   w.on("failed", (job, err) => console.error(`✖ job ${job?.queueName}/${job?.name} falhou:`, err?.message));
 }
@@ -48,7 +58,9 @@ async function registerSchedulers() {
   await documentsQueue.upsertJobScheduler("purge-documents-daily", { every: 24 * 60 * 60 * 1000 }, { name: "purge-expired" });
   // Pull do Google Calendar a cada 10 min (sync bidirecional de entrada).
   await googleQueue.upsertJobScheduler("google-pull-10m", { every: 10 * 60 * 1000 }, { name: "pull-calendar" });
-  console.log("⏰ Schedulers: check-deadlines (2h), purge-documents (24h), google-pull (10min)");
+  // Sincronização DataJud diária.
+  await datajudQueue.upsertJobScheduler("datajud-sync-daily", { every: 24 * 60 * 60 * 1000 }, { name: "sync-all" });
+  console.log("⏰ Schedulers: check-deadlines (2h), purge-documents (24h), google-pull (10min), datajud-sync (24h)");
 }
 
 async function main() {

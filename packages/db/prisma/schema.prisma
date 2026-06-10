@@ -218,6 +218,7 @@ model Case {
   tasks       Task[]
   invoices    Invoice[]
   events      CalendarEvent[]
+  datajudProcess DatajudProcess?
 
   @@index([stage])
   @@index([cnjNumber])
@@ -540,6 +541,94 @@ model ChatwootIntegration {
   active            Boolean  @default(true)
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
+}
+
+// ============================================================
+// DataJud (CNJ) — consulta processual automática
+// ============================================================
+
+/// Configuração da integração DataJud (singleton).
+model DatajudConfig {
+  id                 String    @id @default("datajud")
+  /// Chave pública da API DataJud (DPJ/CNJ), criptografada.
+  apiKeyEncrypted    String?
+  autoSync           Boolean   @default(true)
+  syncIntervalHours  Int       @default(24)
+  /// Extração automática de prazos a partir das movimentações.
+  autoExtractDeadlines Boolean @default(true)
+  deadlineBusinessDays Boolean @default(true)
+  lastSync           DateTime?
+  requestsThisMonth  Int       @default(0)
+  monthlyLimit       Int       @default(1000)
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+}
+
+enum DatajudProcStatus {
+  ATIVO
+  ARQUIVADO
+  BAIXADO
+  DESCONHECIDO
+}
+
+/// Espelho de um processo obtido no DataJud, vinculado a um Case local.
+model DatajudProcess {
+  id                  String            @id @default(cuid())
+  numeroProcesso      String            @unique
+  caseId              String?           @unique
+  case                Case?             @relation(fields: [caseId], references: [id], onDelete: SetNull)
+  tribunalSigla       String?
+  classe              String?
+  assunto             String?
+  orgaoJulgador       String?
+  grau                String?
+  status              DatajudProcStatus @default(DESCONHECIDO)
+  dataAjuizamento     DateTime?
+  dataUltimaMov       DateTime?
+  dataUltimaVerificacao DateTime?
+  rawJson             String?
+  movements           DatajudMovement[]
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
+
+  @@index([caseId])
+}
+
+/// Movimentação processual do DataJud.
+model DatajudMovement {
+  id          String         @id @default(cuid())
+  processId   String
+  process     DatajudProcess @relation(fields: [processId], references: [id], onDelete: Cascade)
+  data        DateTime?
+  codigo      Int?
+  descricao   String
+  /// Hash para deduplicar (codigo+data+descricao).
+  hash        String
+  /// Prazo já extraído a partir desta movimentação?
+  deadlineExtracted Boolean  @default(false)
+  createdAt   DateTime       @default(now())
+
+  @@unique([processId, hash])
+  @@index([processId])
+}
+
+enum SyncLogStatus {
+  SUCCESS
+  ERROR
+  INFO
+}
+
+model DatajudSyncLog {
+  id            String        @id @default(cuid())
+  action        String
+  status        SyncLogStatus
+  message       String?
+  processNumber String?
+  httpStatus    Int?
+  recordsFound  Int?
+  createdAt     DateTime      @default(now())
+
+  @@index([createdAt])
 }
 
 /// Integração Google Calendar (singleton). Tokens OAuth2 criptografados em repouso.

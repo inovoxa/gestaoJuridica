@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { prisma } from "@legaltech/db";
 import { requireSession } from "@/lib/session";
 import { StageControl } from "@/components/stage-control";
+import { DatajudSync } from "@/components/datajud-sync";
 import { DeleteButton } from "@/components/ui/delete-button";
 import { changeStage, deleteCase } from "../actions";
 import {
@@ -41,6 +42,7 @@ export default async function ProcessoDetalhePage({ params }: { params: Promise<
       hearings: { orderBy: { hearingDate: "asc" } },
       deadlines: { orderBy: { deadlineDate: "asc" } },
       documents: { where: { state: { not: "DELETED" } } },
+      datajudProcess: { include: { movements: { orderBy: { data: "desc" }, take: 15 } } },
     },
   });
   if (!c) notFound();
@@ -124,6 +126,31 @@ export default async function ProcessoDetalhePage({ params }: { params: Promise<
         <h2 className="mb-1 font-serif text-base font-semibold text-foreground">Documentos</h2>
         <p className="text-sm text-muted">{c.documents.length} documento(s) vinculado(s).</p>
       </div>
+
+      {/* DataJud */}
+      {c.cnjNumber && (
+        <div className="card p-5">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+            <h2 className="font-serif text-base font-semibold text-foreground">Movimentações (DataJud)</h2>
+            <DatajudSync caseId={c.id} />
+          </div>
+          {!c.datajudProcess || c.datajudProcess.movements.length === 0 ? (
+            <p className="text-sm text-muted">
+              Nenhuma movimentação sincronizada. Clique em “Sincronizar DataJud” para buscar no CNJ.
+            </p>
+          ) : (
+            <ul className="space-y-2">
+              {c.datajudProcess.movements.map((m) => (
+                <li key={m.id} className="flex items-start gap-3 border-b border-border/60 pb-2 text-sm last:border-0">
+                  <span className="mt-0.5 w-20 shrink-0 tabular-nums text-xs text-muted">{formatDate(m.data)}</span>
+                  <span className="flex-1 text-foreground">{m.descricao}</span>
+                  {m.deadlineExtracted && <span className="badge badge-warning shrink-0">prazo</span>}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
     </div>
   );
 }

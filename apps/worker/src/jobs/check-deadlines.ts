@@ -1,10 +1,22 @@
 import { prisma } from "@legaltech/db";
-import { br } from "@legaltech/core";
+import { br, adapters, crypto } from "@legaltech/core";
+
+const { chatwoot } = adapters;
+
+/** Config do Chatwoot (token decifrado) ou null. */
+async function chatwootConfig() {
+  const integ = await prisma.chatwootIntegration.findUnique({ where: { id: "chatwoot" } }).catch(() => null);
+  if (!integ?.active || !integ.baseUrl || !integ.apiTokenEncrypted) return null;
+  try {
+    return { baseUrl: integ.baseUrl, token: crypto.decryptSecret(integ.apiTokenEncrypted) };
+  } catch {
+    return null;
+  }
+}
 
 /**
- * Verifica prazos pendentes, marca vencidos e dispara alertas (5d/3d/1d/vencimento).
- * Fase 1: marca OVERDUE e registra quais alertas seriam enviados.
- * Fase 2: integra envio real (e-mail / webhook n8n / mensagem Chatwoot).
+ * Verifica prazos pendentes, marca vencidos e envia alertas (5d/3d/1d/vencimento).
+ * Canal: Chatwoot (se configurado) + log. E-mail/webhook entram conforme config futura.
  */
 export async function checkDeadlines(now: Date = new Date()): Promise<{ checked: number; overdue: number; alerts: number }> {
   const pending = await prisma.deadline.findMany({
@@ -12,6 +24,7 @@ export async function checkDeadlines(now: Date = new Date()): Promise<{ checked:
     include: { case: { include: { responsibleLawyer: true, client: true } } },
   });
 
+  const cwCfg = await chatwootConfig();
   let overdue = 0;
   let alerts = 0;
 
@@ -29,22 +42,36 @@ export async function checkDeadlines(now: Date = new Date()): Promise<{ checked:
       continue;
     }
 
-    const toSend: { flag: keyof typeof dl; field: string }[] = [];
-    if (calendarDays === 5 && !dl.alertSent5d) toSend.push({ flag: "alertSent5d", field: "alertSent5d" });
-    if (calendarDays === 3 && !dl.alertSent3d) toSend.push({ flag: "alertSent3d", field: "alertSent3d" });
-    if (calendarDays === 1 && !dl.alertSent1d) toSend.push({ flag: "alertSent1d", field: "alertSent1d" });
-    if (calendarDays === 0 && !dl.alertSentDue) toSend.push({ flag: "alertSentDue", field: "alertSentDue" });
+    const fields: string[] = [];
+    if (calendarDays === 5 && !dl.alertSent5d) fields.push("alertSent5d");
+    if (calendarDays === 3 && !dl.alertSent3d) fields.push("alertSent3d");
+    if (calendarDays === 1 && !dl.alertSent1d) fields.push("alertSent1d");
+    if (calendarDays === 0 && !dl.alertSentDue) fields.push("alertSentDue");
 
-    for (const a of toSend) {
-      // TODO Fase 2: enviar via e-mail / webhook / Chatwoot
-      console.log(
-        `[alerta] Processo ${dl.case.caseNumber} — prazo ${dl.deadlineType} vence em ${calendarDays}d ` +
-          `(${remaining} dias úteis), advogado ${dl.case.responsibleLawyer?.name ?? "—"}`,
-      );
-      await prisma.deadline.update({
-        where: { id: dl.id },
-        data: { [a.field]: true, status: "ALERTED" },
-      });
+    for (const field of fields) {
+      const venceTxt = calendarDays === 0 ? "VENCE HOJE" : `vence em ${calendarDays} dia(s)`;
+      const msg =
+        `⚖️ Prazo ${dl.deadlineType} ${venceTxt}\n` +
+        `Processo: ${dl.case.caseNumber}${dl.case.cnjNumber ? ` (${dl.case.cnjNumber})` : ""}\n` +
+        `Cliente: ${dl.case.client.name}\n` +
+        `Dias úteis restantes: ${remaining}`;
+
+      // Canal Chatwoot (best-effort).
+      if (cwCfg) {
+        try {
+          await chatwoot.createConversation(cwCfg, {
+            name: dl.case.responsibleLawyer?.name ?? "Equipe jurídica",
+            phone: null,
+            message: msg,
+            extra: { type: "deadline_alert", caseNumber: dl.case.caseNumber, daysRemaining: calendarDays },
+          });
+        } catch (err) {
+          console.error("[alerta chatwoot]", (err as Error).message);
+        }
+      }
+      console.log(`[alerta] ${msg.replace(/\n/g, " | ")}`);
+
+      await prisma.deadline.update({ where: { id: dl.id }, data: { [field]: true, status: "ALERTED" } });
       alerts++;
     }
   }

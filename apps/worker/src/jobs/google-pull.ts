@@ -1,25 +1,9 @@
 import { prisma } from "@legaltech/db";
-import { adapters } from "@legaltech/core";
-import { createDecipheriv, createCipheriv, randomBytes, createHash } from "node:crypto";
+import { adapters, crypto } from "@legaltech/core";
 
 const { googleCalendar: gcal } = adapters;
-
-// Criptografia espelhada de apps/web/lib/crypto.ts (mesma chave/algoritmo).
-function key() {
-  return createHash("sha256").update(process.env.CREDENTIALS_ENCRYPTION_KEY ?? "").digest();
-}
-function dec(payload: string): string {
-  const [iv, tag, ct] = payload.split(".");
-  const d = createDecipheriv("aes-256-gcm", key(), Buffer.from(iv!, "base64"));
-  d.setAuthTag(Buffer.from(tag!, "base64"));
-  return Buffer.concat([d.update(Buffer.from(ct!, "base64")), d.final()]).toString("utf8");
-}
-function enc(plain: string): string {
-  const iv = randomBytes(12);
-  const c = createCipheriv("aes-256-gcm", key(), iv);
-  const ct = Buffer.concat([c.update(plain, "utf8"), c.final()]);
-  return `${iv.toString("base64")}.${c.getAuthTag().toString("base64")}.${ct.toString("base64")}`;
-}
+const dec = crypto.decryptSecret;
+const enc = crypto.encryptSecret;
 
 /**
  * Pull bidirecional: traz mudanças do Google Calendar para o sistema.

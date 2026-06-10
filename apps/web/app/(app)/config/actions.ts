@@ -43,3 +43,20 @@ export async function testChatwoot(): Promise<{ ok: boolean; message: string }> 
     return { ok: false, message: (err as Error).message };
   }
 }
+
+export async function saveDatajudConfig(formData: FormData) {
+  await requireRole("ADMIN_ESCRITORIO");
+  const apiKey = String(formData.get("apiKey") ?? "").trim();
+  const autoSync = formData.get("autoSync") === "on";
+  const autoExtractDeadlines = formData.get("autoExtractDeadlines") === "on";
+
+  const existing = await prisma.datajudConfig.findUnique({ where: { id: "datajud" } });
+  const apiKeyEncrypted = apiKey ? encryptSecret(apiKey) : existing?.apiKeyEncrypted ?? null;
+
+  await prisma.datajudConfig.upsert({
+    where: { id: "datajud" },
+    update: { apiKeyEncrypted, autoSync, autoExtractDeadlines },
+    create: { id: "datajud", apiKeyEncrypted, autoSync, autoExtractDeadlines },
+  });
+  revalidatePath("/config");
+}
