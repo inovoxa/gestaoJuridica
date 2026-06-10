@@ -1,7 +1,8 @@
 import { Worker } from "bullmq";
-import { connection, QUEUE_NAMES, deadlinesQueue, documentsQueue } from "./queues.js";
+import { connection, QUEUE_NAMES, deadlinesQueue, documentsQueue, googleQueue } from "./queues.js";
 import { checkDeadlines } from "./jobs/check-deadlines.js";
 import { purgeExpiredDocuments } from "./jobs/purge-documents.js";
+import { pullGoogleCalendar } from "./jobs/google-pull.js";
 
 /**
  * Processo worker: substitui os ir.cron do Odoo.
@@ -26,7 +27,16 @@ const documentsWorker = new Worker(
   { connection },
 );
 
-for (const w of [deadlinesWorker, documentsWorker]) {
+const googleWorker = new Worker(
+  QUEUE_NAMES.google,
+  async (job) => {
+    if (job.name === "pull-calendar") return pullGoogleCalendar();
+    return null;
+  },
+  { connection },
+);
+
+for (const w of [deadlinesWorker, documentsWorker, googleWorker]) {
   w.on("completed", (job, result) => console.log(`✔ job ${job.queueName}/${job.name} ok`, result ?? ""));
   w.on("failed", (job, err) => console.error(`✖ job ${job?.queueName}/${job?.name} falhou:`, err?.message));
 }
@@ -36,7 +46,9 @@ async function registerSchedulers() {
   await deadlinesQueue.upsertJobScheduler("check-deadlines-2h", { every: 2 * 60 * 60 * 1000 }, { name: "check-deadlines" });
   // Purga de documentos diária.
   await documentsQueue.upsertJobScheduler("purge-documents-daily", { every: 24 * 60 * 60 * 1000 }, { name: "purge-expired" });
-  console.log("⏰ Schedulers registrados: check-deadlines (2h), purge-documents (24h)");
+  // Pull do Google Calendar a cada 10 min (sync bidirecional de entrada).
+  await googleQueue.upsertJobScheduler("google-pull-10m", { every: 10 * 60 * 1000 }, { name: "pull-calendar" });
+  console.log("⏰ Schedulers: check-deadlines (2h), purge-documents (24h), google-pull (10min)");
 }
 
 async function main() {

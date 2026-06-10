@@ -322,6 +322,10 @@ model CalendarEvent {
   caseId    String?
   case      Case?               @relation(fields: [caseId], references: [id], onDelete: Cascade)
   notes     String?
+  /// Sincronização com Google Calendar (id do evento remoto).
+  googleEventId String?
+  /// Origem do evento: local | google (evita loop de sincronização).
+  source        String  @default("local")
   createdAt DateTime            @default(now())
   updatedAt DateTime            @updatedAt
 
@@ -329,6 +333,7 @@ model CalendarEvent {
   deadline Deadline?
 
   @@index([start])
+  @@index([googleEventId])
 }
 
 // ============================================================
@@ -535,4 +540,26 @@ model ChatwootIntegration {
   active            Boolean  @default(true)
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
+}
+
+/// Integração Google Calendar (singleton). Tokens OAuth2 criptografados em repouso.
+model GoogleIntegration {
+  id                 String    @id @default("google")
+  /// E-mail/conta Google conectada (informativo).
+  accountEmail       String?
+  accessTokenEnc     String?
+  refreshTokenEnc    String?
+  tokenExpiry        DateTime?
+  /// Calendário alvo (padrão: "primary").
+  calendarId         String    @default("primary")
+  /// Token de sincronização incremental (pull bidirecional).
+  syncToken          String?
+  /// Canal de push notifications (webhook do Google) — opcional.
+  channelId          String?
+  resourceId         String?
+  channelExpiry      DateTime?
+  syncEnabled        Boolean   @default(false)
+  lastSync           DateTime?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
 }

@@ -55,11 +55,19 @@ pnpm worker     # worker de jobs/crons
 
 ## Roadmap (fases)
 
-- **Fase 0 — Fundação** *(em andamento)*: monorepo, schema, auth/RBAC multi-tenant, util BR, worker base.
-- **Fase 1 — MVP núcleo**: clientes, processos, audiências, agenda, prazos manuais, documentos (storage), dashboard, sync Chatwoot.
+- **Fase 0 — Fundação** ✅: monorepo, schema single-tenant, auth/RBAC, util BR, worker, tema dark, website público.
+- **Fase 1 — MVP núcleo** *(em andamento)*: ✅ CRUD clientes, ✅ processos (lista/criar/detalhe + stage), ✅ prazos (dias úteis CPC), ✅ audiências, ✅ agenda, ✅ **Google Calendar bidirecional (OAuth2)**. Falta: upload de documentos (storage) e sync Chatwoot real.
 - **Fase 2 — DataJud + automação de prazos**: sync CNJ, extração automática de prazos, alertas multi-canal.
 - **Fase 3 — IA**: petições, jurisprudência, validação de documentos (+ consentimento LGPD/OAB).
 - **Fase 4 — Portal do cliente, Google Drive, financeiro/relatórios**.
+
+## Google Calendar (sync bidirecional)
+
+A agenda sincroniza com o Google Calendar via OAuth2:
+- Conecte em **Agenda → Conectar** (`/api/google/oauth/start`); o callback guarda o refresh token criptografado (AES-256-GCM).
+- **Saída:** ao criar/excluir audiências, o evento é espelhado no Google (`pushEventToGoogle`).
+- **Entrada:** o worker faz *pull* incremental a cada 10 min (`google-pull`), trazendo eventos criados no Google.
+- Requer `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` (Calendar API habilitada) e redirect URI `{APP_URL}/api/google/callback`.
 
 ## Conformidade legal
 
