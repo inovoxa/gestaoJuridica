@@ -1,0 +1,562 @@
+// LegalTech BR — Schema Prisma (Fase 0/1 núcleo)
+// Multi-tenant: TODA entidade de domínio referencia accountId (escritório).
+// Mapeado do módulo Odoo eb_law_management (referência funcional).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================
+// Tenant / Escritório
+// ============================================================
+
+/// Escritório de advocacia (tenant). Espelha o "account" do Chatwoot.
+model Account {
+  id                String   @id @default(cuid())
+  name              String
+  cnpj              String?
+  /// ID da conta correspondente no CRM Chatwoot (para sincronização).
+  chatwootAccountId String?
+  active            Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  users               User[]
+  lawyers             Lawyer[]
+  clients             Client[]
+  cases               Case[]
+  caseTypes           CaseType[]
+  courts              Court[]
+  judges              Judge[]
+  hearings            Hearing[]
+  calendarEvents      CalendarEvent[]
+  deadlines           Deadline[]
+  documents           Document[]
+  evidences           Evidence[]
+  tasks               Task[]
+  invoices            Invoice[]
+  consentRecords      ConsentRecord[]
+  auditLogs           AuditLog[]
+  chatwootIntegration ChatwootIntegration?
+
+  @@index([chatwootAccountId])
+}
+
+// ============================================================
+// Usuários e papéis (RBAC)
+// ============================================================
+
+enum UserRole {
+  ADMIN_ESCRITORIO
+  ADVOGADO
+  SECRETARIA
+  CLIENTE_PORTAL
+}
+
+model User {
+  id           String   @id @default(cuid())
+  accountId    String
+  account      Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  email        String
+  name         String
+  passwordHash String
+  role         UserRole @default(ADVOGADO)
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  lawyer        Lawyer?
+  clientProfile Client?     @relation("ClientPortalUser")
+  caseLawyers   CaseLawyer[]
+  auditLogs     AuditLog[]
+
+  @@unique([accountId, email])
+  @@index([accountId])
+}
+
+/// Perfil de advogado (Odoo: hr.employee com is_lawyer).
+model Lawyer {
+  id        String   @id @default(cuid())
+  accountId String
+  account   Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  userId    String?  @unique
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  name      String
+  oab       String?
+  oabUf     String?
+  email     String?
+  phone     String?
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  responsibleCases Case[]       @relation("CaseResponsibleLawyer")
+  caseLawyers      CaseLawyer[]
+  hearings         Hearing[]
+
+  @@index([accountId])
+}
+
+// ============================================================
+// Clientes (Odoo: res.partner com is_law_client)
+// ============================================================
+
+model Client {
+  id                String   @id @default(cuid())
+  accountId         String
+  account           Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  /// Vínculo opcional a um usuário do portal (CLIENTE_PORTAL).
+  portalUserId      String?  @unique
+  portalUser        User?    @relation("ClientPortalUser", fields: [portalUserId], references: [id], onDelete: SetNull)
+  name              String
+  cpfCnpj           String?
+  email             String?
+  phone             String?
+  /// ID do contato correspondente no Chatwoot (sync bidirecional).
+  chatwootContactId String?
+  street            String?
+  city              String?
+  state             String?
+  zip               String?
+  notes             String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  cases     Case[]
+  documents Document[]
+
+  @@index([accountId])
+  @@index([chatwootContactId])
+}
+
+// ============================================================
+// Processos (Odoo: law.case) — núcleo
+// ============================================================
+
+enum CaseStage {
+  DRAFT // rascunho
+  IN_PROGRESS // em andamento
+  WON // ganho
+  LOST // perdido
+  SETTLED // acordo
+  CANCELLED // cancelado
+}
+
+model CaseType {
+  id          String   @id @default(cuid())
+  accountId   String
+  account     Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  name        String
+  code        String?
+  description String?
+  cases       Case[]
+
+  @@index([accountId])
+}
+
+model Case {
+  id                   String     @id @default(cuid())
+  accountId            String
+  account              Account    @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  /// Número interno sequencial do escritório (ex.: PROC/00001).
+  caseNumber           String
+  /// Número CNJ do processo (NNNNNNN-DD.AAAA.J.TR.OOOO), quando houver.
+  cnjNumber            String?
+  stage                CaseStage  @default(DRAFT)
+  clientId             String
+  client               Client     @relation(fields: [clientId], references: [id])
+  responsibleLawyerId  String?
+  responsibleLawyer    Lawyer?    @relation("CaseResponsibleLawyer", fields: [responsibleLawyerId], references: [id], onDelete: SetNull)
+  caseTypeId           String?
+  caseType             CaseType?  @relation(fields: [caseTypeId], references: [id], onDelete: SetNull)
+  courtId              String?
+  court                Court?     @relation(fields: [courtId], references: [id], onDelete: SetNull)
+  judgeId              String?
+  judge                Judge?     @relation(fields: [judgeId], references: [id], onDelete: SetNull)
+  oppositeParty        String?
+  /// Segredo de justiça: restringe visibilidade mesmo dentro do escritório.
+  confidential         Boolean    @default(false)
+  outcomeNotes         String?
+  /// Vínculos com o CRM Chatwoot.
+  chatwootCardId       String?
+  chatwootConversationId String?
+  registrationDate     DateTime   @default(now())
+  createdAt            DateTime   @default(now())
+  updatedAt            DateTime   @updatedAt
+
+  caseLawyers  CaseLawyer[]
+  hearings     Hearing[]
+  deadlines    Deadline[]
+  documents    Document[]
+  evidences    Evidence[]
+  tasks        Task[]
+  invoices     Invoice[]
+  events       CalendarEvent[]
+
+  @@unique([accountId, caseNumber])
+  @@index([accountId])
+  @@index([accountId, stage])
+  @@index([cnjNumber])
+}
+
+enum CaseLawyerPermission {
+  READ
+  WRITE
+}
+
+/// N:N advogado↔processo com permissão (Odoo: law.case.lawyer).
+model CaseLawyer {
+  id         String               @id @default(cuid())
+  caseId     String
+  case       Case                 @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  lawyerId   String
+  lawyer     Lawyer               @relation(fields: [lawyerId], references: [id], onDelete: Cascade)
+  userId     String?
+  user       User?                @relation(fields: [userId], references: [id], onDelete: SetNull)
+  permission CaseLawyerPermission @default(READ)
+  isOwner    Boolean              @default(false)
+
+  @@unique([caseId, lawyerId])
+  @@index([caseId])
+  @@index([lawyerId])
+}
+
+// ============================================================
+// Tribunais e juízes
+// ============================================================
+
+model Court {
+  id        String   @id @default(cuid())
+  accountId String
+  account   Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  name      String
+  city      String?
+  state     String?
+  contact   String?
+  judges    Judge[]
+  cases     Case[]
+
+  @@index([accountId])
+}
+
+model Judge {
+  id        String   @id @default(cuid())
+  accountId String
+  account   Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  name      String
+  courtId   String?
+  court     Court?   @relation(fields: [courtId], references: [id], onDelete: SetNull)
+  contact   String?
+  cases     Case[]
+
+  @@index([accountId])
+}
+
+// ============================================================
+// Audiências (Odoo: law.hearing) + Agenda (calendar.event)
+// ============================================================
+
+enum HearingStage {
+  SCHEDULED
+  COMPLETED
+  ADJOURNED
+}
+
+model Hearing {
+  id          String       @id @default(cuid())
+  accountId   String
+  account     Account      @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  caseId      String
+  case        Case         @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  name        String
+  hearingDate DateTime
+  durationHours Float      @default(1)
+  lawyerId    String?
+  lawyer      Lawyer?      @relation(fields: [lawyerId], references: [id], onDelete: SetNull)
+  stage       HearingStage @default(SCHEDULED)
+  notes       String?
+  ata         String?
+  resultado   String?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  event   CalendarEvent? @relation(fields: [eventId], references: [id], onDelete: SetNull)
+  eventId String?        @unique
+
+  @@index([accountId])
+  @@index([caseId])
+}
+
+enum CalendarEventType {
+  CONSULTA
+  AUDIENCIA
+  PRAZO
+  OUTRO
+}
+
+enum CalendarEventStatus {
+  SCHEDULED
+  DONE
+  CANCELLED
+}
+
+model CalendarEvent {
+  id        String              @id @default(cuid())
+  accountId String
+  account   Account             @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  title     String
+  start     DateTime
+  end       DateTime?
+  allDay    Boolean             @default(false)
+  type      CalendarEventType   @default(OUTRO)
+  status    CalendarEventStatus @default(SCHEDULED)
+  caseId    String?
+  case      Case?               @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  notes     String?
+  createdAt DateTime            @default(now())
+  updatedAt DateTime            @updatedAt
+
+  hearing  Hearing?
+  deadline Deadline?
+
+  @@index([accountId])
+  @@index([accountId, start])
+}
+
+// ============================================================
+// Prazos processuais (Odoo: law.datajud.deadline)
+// ============================================================
+
+enum DeadlineType {
+  INTIMACAO
+  CITACAO
+  SENTENCA
+  DESPACHO
+  PUBLICACAO
+  OUTRO
+}
+
+enum DeadlineStatus {
+  PENDING
+  ALERTED
+  COMPLETED
+  OVERDUE
+}
+
+enum RiskLevel {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+model Deadline {
+  id           String         @id @default(cuid())
+  accountId    String
+  account      Account        @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  caseId       String
+  case         Case           @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  deadlineType DeadlineType   @default(OUTRO)
+  originDate   DateTime
+  deadlineDate DateTime
+  description  String?
+  status       DeadlineStatus @default(PENDING)
+  /// Alertas já enviados (evita duplicidade no worker).
+  alertSent5d  Boolean        @default(false)
+  alertSent3d  Boolean        @default(false)
+  alertSent1d  Boolean        @default(false)
+  alertSentDue Boolean        @default(false)
+  taskId       String?        @unique
+  task         Task?          @relation(fields: [taskId], references: [id], onDelete: SetNull)
+  eventId      String?        @unique
+  event        CalendarEvent? @relation(fields: [eventId], references: [id], onDelete: SetNull)
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  @@index([accountId])
+  @@index([caseId])
+  @@index([accountId, status, deadlineDate])
+}
+
+// ============================================================
+// Documentos (Odoo: law.document) + Provas (law.evidence)
+// ============================================================
+
+enum DocumentState {
+  ACTIVE
+  PENDING_DELETION
+  DELETED
+}
+
+model Document {
+  id           String        @id @default(cuid())
+  accountId    String
+  account      Account       @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  name         String
+  description  String?
+  /// Categoria por fase processual (ex.: "01-Inicial", "02-Procuracao").
+  documentType String?
+  caseId       String?
+  case         Case?         @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  clientId     String?
+  client       Client?       @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  /// Storage plugável: driver + chave do objeto (não guardamos o binário no banco).
+  storageDriver String       @default("local")
+  storageKey    String?
+  fileName      String?
+  fileSize      Int?
+  mimeType      String?
+  state                  DocumentState @default(ACTIVE)
+  deletionRequestedDate  DateTime?
+  scheduledDeletionDate  DateTime?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  @@index([accountId])
+  @@index([caseId])
+  @@index([clientId])
+}
+
+enum EvidenceType {
+  DOCUMENT
+  PHOTO
+  VIDEO
+  AUDIO
+  OTHER
+}
+
+model Evidence {
+  id             String       @id @default(cuid())
+  accountId      String
+  account        Account      @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  caseId         String
+  case           Case         @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  name           String
+  description    String?
+  evidenceType   EvidenceType @default(DOCUMENT)
+  storageDriver  String       @default("local")
+  storageKey     String?
+  fileName       String?
+  submittedById  String?
+  submissionDate DateTime     @default(now())
+  createdAt      DateTime     @default(now())
+
+  @@index([accountId])
+  @@index([caseId])
+}
+
+// ============================================================
+// Tarefas (Odoo: project.task) e Faturamento leve (account.move)
+// ============================================================
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  DONE
+}
+
+model Task {
+  id        String     @id @default(cuid())
+  accountId String
+  account   Account    @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  caseId    String?
+  case      Case?      @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  name      String
+  status    TaskStatus @default(TODO)
+  dueDate   DateTime?
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  deadline Deadline?
+
+  @@index([accountId])
+  @@index([caseId])
+}
+
+enum InvoiceStatus {
+  DRAFT
+  SENT
+  PAID
+  PARTIAL
+  CANCELLED
+}
+
+model Invoice {
+  id         String        @id @default(cuid())
+  accountId  String
+  account    Account       @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  caseId     String?
+  case       Case?         @relation(fields: [caseId], references: [id], onDelete: SetNull)
+  number     String
+  amount     Decimal       @db.Decimal(12, 2)
+  status     InvoiceStatus @default(DRAFT)
+  dueDate    DateTime?
+  issuedAt   DateTime      @default(now())
+
+  @@index([accountId])
+  @@index([caseId])
+}
+
+// ============================================================
+// Conformidade LGPD / OAB
+// ============================================================
+
+/// Consentimento escrito do cliente para uso de IA (Recomendação OAB 001/2024).
+model ConsentRecord {
+  id          String   @id @default(cuid())
+  accountId   String
+  account     Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  clientId    String
+  purpose     String   // ex.: "uso_ia", "compartilhamento_datajud"
+  granted     Boolean  @default(false)
+  grantedAt   DateTime?
+  revokedAt   DateTime?
+  documentRef String?  // referência ao termo assinado (storageKey)
+  createdAt   DateTime @default(now())
+
+  @@index([accountId])
+  @@index([clientId, purpose])
+}
+
+/// Trilha de auditoria de acesso/edição a dados sensíveis (LGPD).
+model AuditLog {
+  id        String   @id @default(cuid())
+  accountId String
+  account   Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  action    String   // ex.: "case.view", "document.download", "ai.invoke"
+  entity    String   // ex.: "Case", "Document"
+  entityId  String?
+  metadata  Json?
+  ip        String?
+  createdAt DateTime @default(now())
+
+  @@index([accountId, createdAt])
+  @@index([entity, entityId])
+}
+
+// ============================================================
+// Integração Chatwoot (credenciais por escritório, criptografadas)
+// ============================================================
+
+model ChatwootIntegration {
+  id                String   @id @default(cuid())
+  accountId         String   @unique
+  account           Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  baseUrl           String
+  /// Token criptografado em repouso (AES-256-GCM).
+  apiTokenEncrypted String
+  chatwootAccountId String?
+  /// Funil/stages padrão usados para espelhar processos como cards.
+  defaultFunnelId   String?
+  stageMap          Json?
+  active            Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}

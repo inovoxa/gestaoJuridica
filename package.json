@@ -1,0 +1,26 @@
+{
+  "name": "legaltech-br",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Sistema independente de gestão jurídica (LegalTech BR) integrado ao CRM Chatwoot",
+  "packageManager": "pnpm@9.12.0",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "test": "turbo run test",
+    "worker": "pnpm --filter @legaltech/worker dev",
+    "db:generate": "pnpm --filter @legaltech/db generate",
+    "db:migrate": "pnpm --filter @legaltech/db migrate",
+    "db:seed": "pnpm --filter @legaltech/db seed",
+    "db:studio": "pnpm --filter @legaltech/db studio"
+  },
+  "devDependencies": {
+    "prettier": "^3.3.3",
+    "turbo": "^2.1.3",
+    "typescript": "^5.6.2"
+  }
+}

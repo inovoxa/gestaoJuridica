@@ -1,0 +1,9 @@
+# Normaliza finais de linha para LF (servidor/VPS Linux)
+* text=auto eol=lf
+
+# Binários
+*.png binary
+*.jpg binary
+*.gif binary
+*.ico binary
+*.pdf binary
