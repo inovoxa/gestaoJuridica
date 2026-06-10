@@ -18,6 +18,8 @@ export async function GET() {
     );
   }
 
-  const url = gcal.buildAuthUrl(clientId, redirectUri, "calendar");
+  // Escopo combinado: Calendar (agenda) + Drive.file (storage de documentos).
+  const scope = `${gcal.GOOGLE_CALENDAR_SCOPE} ${gcal.GOOGLE_DRIVE_SCOPE}`;
+  const url = gcal.buildAuthUrl(clientId, redirectUri, "calendar", scope);
   return NextResponse.redirect(url);
 }

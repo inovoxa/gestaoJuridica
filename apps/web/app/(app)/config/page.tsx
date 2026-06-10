@@ -95,6 +95,7 @@ export default async function ConfigPage() {
             required
             defaultValue={ai?.provider ?? ""}
             options={[
+              { value: "OPENROUTER", label: "OpenRouter (multi-modelos)" },
               { value: "OPENAI", label: "OpenAI (GPT)" },
               { value: "ANTHROPIC", label: "Anthropic (Claude)" },
               { value: "GEMINI", label: "Google (Gemini)" },

@@ -16,7 +16,7 @@ import {
   DEADLINE_STATUS_LABEL,
   DEADLINE_STATUS_BADGE,
 } from "@/lib/format";
-import { Lock, ArrowLeft, FileSignature } from "lucide-react";
+import { Lock, ArrowLeft, FileSignature, FileText } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -63,6 +63,14 @@ export default async function ProcessoDetalhePage({ params }: { params: Promise<
           {c.cnjNumber && <p className="text-sm text-muted">CNJ: {c.cnjNumber}</p>}
         </div>
         <div className="flex items-center gap-2">
+          <Link
+            href={`/relatorios/processo/${c.id}`}
+            target="_blank"
+            className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-muted transition-colors hover:border-gold/40 hover:text-foreground"
+          >
+            <FileText className="h-3.5 w-3.5" strokeWidth={1.75} />
+            Relatório
+          </Link>
           <Link
             href={`/processos/${c.id}/peticoes`}
             className="flex items-center gap-1.5 rounded-lg border border-gold/40 px-3 py-1.5 text-xs font-medium text-gold transition-colors hover:bg-gold/10"

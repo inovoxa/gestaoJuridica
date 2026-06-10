@@ -558,6 +558,7 @@ enum AiProvider {
   ANTHROPIC
   GEMINI
   GROK
+  OPENROUTER
 }
 
 /// Provedores de IA configurados (escolhido por prioridade entre os ativos).

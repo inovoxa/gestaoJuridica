@@ -25,7 +25,8 @@ export async function uploadDocument(formData: FormData) {
   const driver = storage.getStorage();
   const key = storage.buildStorageKey(scope, file.name);
   const buffer = Buffer.from(await file.arrayBuffer());
-  await driver.put(key, buffer, file.type);
+  // put() retorna a chave efetiva (no Google Drive, o id do arquivo).
+  const stored = await driver.put(key, buffer, file.type);
 
   await prisma.document.create({
     data: {
@@ -34,7 +35,7 @@ export async function uploadDocument(formData: FormData) {
       caseId,
       clientId,
       storageDriver: driver.name,
-      storageKey: key,
+      storageKey: stored.key,
       fileName: file.name,
       fileSize: file.size,
       mimeType: file.type || null,

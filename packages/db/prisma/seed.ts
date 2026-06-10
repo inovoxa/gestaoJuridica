@@ -105,9 +105,27 @@ async function main() {
   });
   const juiz = await prisma.judge.create({ data: { name: "Dr. Carlos Mendes", courtId: tribunal.id } });
 
+  // Usuário do portal do cliente
+  const clientePortalUser = await prisma.user.upsert({
+    where: { email: "maria@exemplo.com" },
+    update: {},
+    create: {
+      email: "maria@exemplo.com",
+      name: "Maria Oliveira",
+      passwordHash: seedHash("cliente123"),
+      role: UserRole.CLIENTE_PORTAL,
+    },
+  });
+
   // Cliente + processo + audiência + prazo
   const cliente = await prisma.client.create({
-    data: { name: "Maria Oliveira", cpfCnpj: "123.456.789-00", email: "maria@exemplo.com", phone: "+5516999990000" },
+    data: {
+      name: "Maria Oliveira",
+      cpfCnpj: "123.456.789-00",
+      email: "maria@exemplo.com",
+      phone: "+5516999990000",
+      portalUserId: clientePortalUser.id,
+    },
   });
 
   const processo = await prisma.case.create({
@@ -148,6 +166,7 @@ async function main() {
   console.log("   • Escritório: Silva & Associados (website + dados)");
   console.log("   • Admin:    admin@silva.adv.br / admin123");
   console.log("   • Advogado: joao@silva.adv.br / advogado123");
+  console.log("   • Cliente (portal): maria@exemplo.com / cliente123");
   console.log("   • 4 áreas de atuação, 1 cliente, 1 processo, 1 audiência, 1 prazo");
 }
 

@@ -1,6 +1,7 @@
 import { Sidebar } from "@/components/sidebar";
 import { requireSession, getFirm } from "@/lib/session";
 import { signOut } from "@/lib/auth";
+import { redirect } from "next/navigation";
 import { LogOut } from "lucide-react";
 
 const ROLE_LABEL: Record<string, string> = {
@@ -12,6 +13,8 @@ const ROLE_LABEL: Record<string, string> = {
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const [ctx, firm] = await Promise.all([requireSession(), getFirm()]);
+  // Clientes do portal não acessam o painel administrativo.
+  if (ctx.role === "CLIENTE_PORTAL") redirect("/portal");
 
   async function logout() {
     "use server";

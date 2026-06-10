@@ -12,6 +12,8 @@ const PRIVATE_PREFIXES = [
   "/agenda",
   "/prazos",
   "/documentos",
+  "/financeiro",
+  "/relatorios",
   "/portal",
   "/config",
 ];

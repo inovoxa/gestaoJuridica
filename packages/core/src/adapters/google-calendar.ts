@@ -10,6 +10,7 @@ const OAUTH_AUTH = "https://accounts.google.com/o/oauth2/v2/auth";
 const OAUTH_TOKEN = "https://oauth2.googleapis.com/token";
 const CAL_API = "https://www.googleapis.com/calendar/v3";
 export const GOOGLE_CALENDAR_SCOPE = "https://www.googleapis.com/auth/calendar";
+export const GOOGLE_DRIVE_SCOPE = "https://www.googleapis.com/auth/drive.file";
 
 export interface GoogleTokens {
   accessToken: string;
@@ -27,12 +28,12 @@ export interface GcalEvent {
 }
 
 /** URL de consentimento OAuth2 (access_type=offline para obter refresh_token). */
-export function buildAuthUrl(clientId: string, redirectUri: string, state?: string): string {
+export function buildAuthUrl(clientId: string, redirectUri: string, state?: string, scope?: string): string {
   const params = new URLSearchParams({
     client_id: clientId,
     redirect_uri: redirectUri,
     response_type: "code",
-    scope: GOOGLE_CALENDAR_SCOPE,
+    scope: scope ?? GOOGLE_CALENDAR_SCOPE,
     access_type: "offline",
     prompt: "consent",
     ...(state ? { state } : {}),

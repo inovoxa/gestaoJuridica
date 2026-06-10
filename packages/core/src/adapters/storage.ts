@@ -86,13 +86,41 @@ class S3Storage implements StorageDriver {
   }
 }
 
+// ---------- Google Drive ----------
+class GDriveStorage implements StorageDriver {
+  readonly name = "gdrive";
+
+  private async token(): Promise<string> {
+    const { getGoogleAccessToken } = await import("../services/google-auth.js");
+    return getGoogleAccessToken();
+  }
+  /** A "key" é o id do arquivo no Drive (retornado pelo upload). */
+  async put(key: string, data: Buffer, contentType?: string): Promise<PutResult> {
+    const drive = await import("./google-drive.js");
+    const token = await this.token();
+    const name = key.split("/").pop() ?? key;
+    const file = await drive.uploadFile(token, { name, mimeType: contentType, data });
+    return { key: file.id, size: data.length };
+  }
+  async get(key: string): Promise<Buffer> {
+    const drive = await import("./google-drive.js");
+    return drive.downloadFile(await this.token(), key);
+  }
+  async delete(key: string): Promise<void> {
+    const drive = await import("./google-drive.js");
+    await drive.deleteFile(await this.token(), key);
+  }
+}
+
 let cached: StorageDriver | null = null;
 
 /** Retorna o driver de storage configurado (cacheado). */
 export function getStorage(): StorageDriver {
   if (cached) return cached;
   const driver = (process.env.STORAGE_DRIVER ?? "local").toLowerCase();
-  cached = driver === "s3" ? new S3Storage() : new LocalStorage(process.env.STORAGE_LOCAL_PATH ?? "./storage");
+  if (driver === "s3") cached = new S3Storage();
+  else if (driver === "gdrive") cached = new GDriveStorage();
+  else cached = new LocalStorage(process.env.STORAGE_LOCAL_PATH ?? "./storage");
   return cached;
 }
 

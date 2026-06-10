@@ -60,7 +60,14 @@ pnpm worker     # worker de jobs/crons
 - **Fase 2 — DataJud + automação de prazos** ✅: integração com a API pública DataJud (CNJ) — sync de capa + movimentações por número CNJ; **extração automática de prazos** das movimentações (palavras-chave + dias úteis CPC); sync diário no worker; **alertas de prazo via Chatwoot** (5d/3d/1d/vencimento). Config em /config.
 - **Fase 3 — IA** ✅: adapter multi-provedor (OpenAI/Anthropic/Gemini/Grok); **geração de petições** com contexto do processo; **explicação de movimentações** em linguagem simples; **consentimento LGPD/OAB** (Recomendação 001/2024) bloqueando IA sem autorização do cliente; uso auditado (AuditLog). Config em /config.
 - **Automação de audiências** ✅: audiências detectadas automaticamente nas movimentações do DataJud (designação com data/hora) → criam `Hearing` + evento na agenda; lembretes 3d/1d via Chatwoot.
-- **Fase 4 — Portal do cliente, Google Drive, financeiro/relatórios**.
+- **Fase 4 — Portal do cliente, Google Drive, financeiro/relatórios** ✅: **portal do cliente** (`/portal`) com login próprio, processos, prazos, audiências e **upload de provas**; **storage Google Drive** (driver `gdrive`, escopo `drive.file` na conexão Google); **financeiro** (faturas/honorários por processo); **relatório do processo** em página imprimível (PDF). IA agora também via **OpenRouter**.
+
+## Storage de documentos (plugável)
+
+`STORAGE_DRIVER` define onde os arquivos ficam:
+- `local` — filesystem (`STORAGE_LOCAL_PATH`).
+- `s3` — S3/MinIO (recomendado p/ LGPD; credenciais `S3_*`).
+- `gdrive` — Google Drive (reutiliza a conexão Google de OAuth; escopo `drive.file`). A "chave" do documento passa a ser o id do arquivo no Drive.
 
 ## Automação de audiências — integração via DataJud
 

@@ -3,7 +3,7 @@
  * Recebe a config (provider + apiKey + model) e retorna texto + tokens usados.
  */
 
-export type AiProviderName = "OPENAI" | "ANTHROPIC" | "GEMINI" | "GROK";
+export type AiProviderName = "OPENAI" | "ANTHROPIC" | "GEMINI" | "GROK" | "OPENROUTER";
 
 export interface AiRequest {
   provider: AiProviderName;
@@ -31,6 +31,8 @@ export function defaultModel(provider: AiProviderName): string {
       return "gemini-2.5-flash";
     case "GROK":
       return "grok-4";
+    case "OPENROUTER":
+      return "anthropic/claude-sonnet-4.6";
   }
 }
 
@@ -84,12 +86,20 @@ export async function complete(req: AiRequest): Promise<AiResponse> {
     return { content, tokens: data.usageMetadata?.totalTokenCount ?? 0, model };
   }
 
-  // OpenAI e Grok usam o mesmo formato (Chat Completions).
+  // OpenAI, Grok e OpenRouter usam o mesmo formato (Chat Completions).
   const endpoint =
-    req.provider === "GROK" ? "https://api.x.ai/v1/chat/completions" : "https://api.openai.com/v1/chat/completions";
+    req.provider === "GROK"
+      ? "https://api.x.ai/v1/chat/completions"
+      : req.provider === "OPENROUTER"
+        ? "https://openrouter.ai/api/v1/chat/completions"
+        : "https://api.openai.com/v1/chat/completions";
+  const extraHeaders =
+    req.provider === "OPENROUTER"
+      ? { "HTTP-Referer": "https://inovoxa.com.br", "X-Title": "LegalTech BR" }
+      : {};
   const res = await fetch(endpoint, {
     method: "POST",
-    headers: { Authorization: `Bearer ${req.apiKey}`, "Content-Type": "application/json" },
+    headers: { Authorization: `Bearer ${req.apiKey}`, "Content-Type": "application/json", ...extraHeaders },
     body: JSON.stringify({
       model,
       max_tokens: maxTokens,

@@ -10,6 +10,7 @@ import {
   CalendarDays,
   Clock,
   FileText,
+  Wallet,
   Settings,
   Globe,
 } from "lucide-react";
@@ -22,6 +23,7 @@ const NAV = [
   { href: "/agenda", label: "Agenda", icon: CalendarDays },
   { href: "/prazos", label: "Prazos", icon: Clock },
   { href: "/documentos", label: "Documentos", icon: FileText },
+  { href: "/financeiro", label: "Financeiro", icon: Wallet },
 ];
 
 export function Sidebar({ firmName, isAdmin }: { firmName: string; isAdmin?: boolean }) {
