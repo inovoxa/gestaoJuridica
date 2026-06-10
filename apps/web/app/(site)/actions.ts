@@ -1,6 +1,7 @@
 "use server";
 
 import { prisma } from "@legaltech/db";
+import { sendLeadToChatwoot } from "@/lib/chatwoot";
 
 export interface ContactFormState {
   ok: boolean;
@@ -22,7 +23,7 @@ export async function submitContact(_prev: ContactFormState, formData: FormData)
     return { ok: false, error: "Informe nome, mensagem e ao menos um contato (e-mail ou telefone)." };
   }
 
-  await prisma.contactMessage.create({
+  const created = await prisma.contactMessage.create({
     data: {
       name,
       email: email || null,
@@ -32,6 +33,9 @@ export async function submitContact(_prev: ContactFormState, formData: FormData)
     },
   });
 
-  // TODO Fase 2: enviar ao Chatwoot (lead) via adapter.
+  // Envia o lead ao Chatwoot (best-effort) e marca como sincronizado.
+  const synced = await sendLeadToChatwoot({ name, email, phone, message, practiceArea });
+  if (synced) await prisma.contactMessage.update({ where: { id: created.id }, data: { syncedToCrm: true } });
+
   return { ok: true };
 }

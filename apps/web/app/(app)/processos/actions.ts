@@ -3,6 +3,7 @@
 import { prisma, type CaseStage } from "@legaltech/db";
 import { br } from "@legaltech/core";
 import { requireSession } from "@/lib/session";
+import { createCardForCase } from "@/lib/chatwoot";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
@@ -46,7 +47,9 @@ export async function createCase(formData: FormData) {
     },
   });
 
-  // TODO Fase 2: criar card no funil "Processos" do Chatwoot.
+  // Espelha o processo como card no funil do Chatwoot (best-effort).
+  await createCardForCase(created.id);
+
   revalidatePath("/processos");
   redirect(`/processos/${created.id}`);
 }

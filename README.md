@@ -56,7 +56,7 @@ pnpm worker     # worker de jobs/crons
 ## Roadmap (fases)
 
 - **Fase 0 — Fundação** ✅: monorepo, schema single-tenant, auth/RBAC, util BR, worker, tema dark, website público.
-- **Fase 1 — MVP núcleo** *(em andamento)*: ✅ CRUD clientes, ✅ processos (lista/criar/detalhe + stage), ✅ prazos (dias úteis CPC), ✅ audiências, ✅ agenda, ✅ **Google Calendar bidirecional (OAuth2)**. Falta: upload de documentos (storage) e sync Chatwoot real.
+- **Fase 1 — MVP núcleo** ✅: CRUD clientes, processos (lista/criar/detalhe + stage), prazos (dias úteis CPC), audiências, agenda, **Google Calendar bidirecional (OAuth2)**, **upload de documentos** (storage local/S3 + ciclo de vida) e **integração Chatwoot** (lead do site, card de processo no funil, página de configuração).
 - **Fase 2 — DataJud + automação de prazos**: sync CNJ, extração automática de prazos, alertas multi-canal.
 - **Fase 3 — IA**: petições, jurisprudência, validação de documentos (+ consentimento LGPD/OAB).
 - **Fase 4 — Portal do cliente, Google Drive, financeiro/relatórios**.

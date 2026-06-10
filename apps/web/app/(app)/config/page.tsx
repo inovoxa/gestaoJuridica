@@ -1,0 +1,69 @@
+import { prisma } from "@legaltech/db";
+import { requireRole } from "@/lib/session";
+import { PageHeader } from "@/components/ui/page-header";
+import { Field, FormActions } from "@/components/ui/form";
+import { ChatwootTest } from "@/components/chatwoot-test";
+import { saveChatwootConfig } from "./actions";
+import { MessagesSquare, CalendarDays } from "lucide-react";
+
+export const dynamic = "force-dynamic";
+
+export default async function ConfigPage() {
+  await requireRole("ADMIN_ESCRITORIO");
+  const [chatwoot, google] = await Promise.all([
+    prisma.chatwootIntegration.findUnique({ where: { id: "chatwoot" } }),
+    prisma.googleIntegration.findUnique({ where: { id: "google" } }).catch(() => null),
+  ]);
+
+  return (
+    <div className="max-w-2xl space-y-6">
+      <PageHeader title="Configurações" subtitle="Integrações do escritório" />
+
+      {/* Chatwoot */}
+      <div className="card p-6">
+        <div className="mb-4 flex items-center gap-2">
+          <MessagesSquare className="h-5 w-5 text-gold" strokeWidth={1.75} />
+          <h2 className="font-serif text-base font-semibold text-foreground">CRM Chatwoot</h2>
+        </div>
+        <form action={saveChatwootConfig} className="space-y-4">
+          <Field label="Base URL" name="baseUrl" defaultValue={chatwoot?.baseUrl ?? ""} placeholder="https://crm.seudominio.com.br" />
+          <Field
+            label="API Token"
+            name="token"
+            type="password"
+            placeholder={chatwoot?.apiTokenEncrypted ? "•••••• (mantém o atual se vazio)" : "Cole o API Token"}
+            helper="Armazenado criptografado (AES-256-GCM)."
+          />
+          <Field label="ID do funil padrão (processos)" name="defaultFunnelId" defaultValue={chatwoot?.defaultFunnelId ?? ""} />
+          <label className="flex items-center gap-2 text-sm text-muted">
+            <input type="checkbox" name="active" defaultChecked={chatwoot?.active ?? true} className="h-4 w-4 rounded border-border bg-bg accent-gold" />
+            Integração ativa
+          </label>
+          <div className="flex items-center justify-between">
+            <ChatwootTest />
+            <FormActions cancelHref="/dashboard" submitLabel="Salvar" />
+          </div>
+        </form>
+      </div>
+
+      {/* Google Calendar */}
+      <div className="card p-6">
+        <div className="mb-2 flex items-center gap-2">
+          <CalendarDays className="h-5 w-5 text-gold" strokeWidth={1.75} />
+          <h2 className="font-serif text-base font-semibold text-foreground">Google Calendar</h2>
+        </div>
+        <p className="text-sm text-muted">
+          {google?.syncEnabled
+            ? "Sincronização bidirecional ativa."
+            : "Conecte sua conta Google na página de Agenda para sincronizar a agenda."}
+        </p>
+        <a
+          href={google?.syncEnabled ? "/agenda" : "/api/google/oauth/start"}
+          className="mt-3 inline-block text-sm text-gold hover:underline"
+        >
+          {google?.syncEnabled ? "Ir para a Agenda →" : "Conectar Google Calendar →"}
+        </a>
+      </div>
+    </div>
+  );
+}

@@ -20,7 +20,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   return (
     <div className="flex min-h-dvh">
-      <Sidebar firmName={firm?.name ?? "Escritório"} />
+      <Sidebar firmName={firm?.name ?? "Escritório"} isAdmin={ctx.role === "ADMIN_ESCRITORIO"} />
       <div className="flex flex-1 flex-col">
         <header className="flex items-center justify-between border-b border-border bg-surface/60 px-6 py-3 backdrop-blur">
           <div className="text-sm text-muted">

@@ -10,6 +10,7 @@ import {
   CalendarDays,
   Clock,
   FileText,
+  Settings,
   Globe,
 } from "lucide-react";
 
@@ -23,8 +24,9 @@ const NAV = [
   { href: "/documentos", label: "Documentos", icon: FileText },
 ];
 
-export function Sidebar({ firmName }: { firmName: string }) {
+export function Sidebar({ firmName, isAdmin }: { firmName: string; isAdmin?: boolean }) {
   const pathname = usePathname();
+  const nav = isAdmin ? [...NAV, { href: "/config", label: "Configurações", icon: Settings }] : NAV;
 
   return (
     <aside className="flex w-64 flex-col border-r border-border bg-surface">
@@ -34,7 +36,7 @@ export function Sidebar({ firmName }: { firmName: string }) {
       </div>
 
       <nav className="flex-1 space-y-1 px-3">
-        {NAV.map(({ href, label, icon: Icon }) => {
+        {nav.map(({ href, label, icon: Icon }) => {
           const active = pathname === href || pathname.startsWith(href + "/");
           return (
             <Link
