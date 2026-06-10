@@ -1,6 +1,6 @@
 "use server";
 
-import { prisma } from "@legaltech/db";
+import { prisma, type AiProvider } from "@legaltech/db";
 import { adapters } from "@legaltech/core";
 import { requireRole } from "@/lib/session";
 import { encryptSecret, decryptSecret } from "@/lib/crypto";
@@ -58,5 +58,26 @@ export async function saveDatajudConfig(formData: FormData) {
     update: { apiKeyEncrypted, autoSync, autoExtractDeadlines },
     create: { id: "datajud", apiKeyEncrypted, autoSync, autoExtractDeadlines },
   });
+  revalidatePath("/config");
+}
+
+export async function saveAiConfig(formData: FormData) {
+  await requireRole("ADMIN_ESCRITORIO");
+  const provider = String(formData.get("provider") ?? "") as AiProvider;
+  const apiKey = String(formData.get("apiKey") ?? "").trim();
+  const model = String(formData.get("model") ?? "").trim() || null;
+  const active = formData.get("active") === "on";
+
+  const existing = await prisma.aiConfig.findFirst({ orderBy: { priority: "asc" } });
+  const apiKeyEnc = apiKey ? encryptSecret(apiKey) : existing?.apiKeyEnc;
+  if (!apiKeyEnc) throw new Error("Informe a chave da API de IA");
+
+  if (existing) {
+    await prisma.aiConfig.update({ where: { id: existing.id }, data: { provider, apiKeyEnc, model, active } });
+  } else {
+    await prisma.aiConfig.create({
+      data: { name: "Principal", provider, apiKeyEnc, model, active, priority: 10 },
+    });
+  }
   revalidatePath("/config");
 }

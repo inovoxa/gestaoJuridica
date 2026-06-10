@@ -3,17 +3,19 @@ import { requireRole } from "@/lib/session";
 import { PageHeader } from "@/components/ui/page-header";
 import { Field, FormActions } from "@/components/ui/form";
 import { ChatwootTest } from "@/components/chatwoot-test";
-import { saveChatwootConfig, saveDatajudConfig } from "./actions";
-import { MessagesSquare, CalendarDays, Scale } from "lucide-react";
+import { Select } from "@/components/ui/form";
+import { saveChatwootConfig, saveDatajudConfig, saveAiConfig } from "./actions";
+import { MessagesSquare, CalendarDays, Scale, Sparkles } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
 export default async function ConfigPage() {
   await requireRole("ADMIN_ESCRITORIO");
-  const [chatwoot, google, datajud] = await Promise.all([
+  const [chatwoot, google, datajud, ai] = await Promise.all([
     prisma.chatwootIntegration.findUnique({ where: { id: "chatwoot" } }),
     prisma.googleIntegration.findUnique({ where: { id: "google" } }).catch(() => null),
     prisma.datajudConfig.findUnique({ where: { id: "datajud" } }).catch(() => null),
+    prisma.aiConfig.findFirst({ orderBy: { priority: "asc" } }).catch(() => null),
   ]);
 
   return (
@@ -76,6 +78,48 @@ export default async function ConfigPage() {
         {datajud?.lastSync && (
           <p className="mt-3 text-xs text-muted">
             Última sincronização: {datajud.lastSync.toLocaleString("pt-BR")} · {datajud.requestsThisMonth} requisição(ões) no mês
+          </p>
+        )}
+      </div>
+
+      {/* IA */}
+      <div className="card p-6">
+        <div className="mb-4 flex items-center gap-2">
+          <Sparkles className="h-5 w-5 text-gold" strokeWidth={1.75} />
+          <h2 className="font-serif text-base font-semibold text-foreground">Inteligência Artificial</h2>
+        </div>
+        <form action={saveAiConfig} className="space-y-4">
+          <Select
+            label="Provedor"
+            name="provider"
+            required
+            defaultValue={ai?.provider ?? ""}
+            options={[
+              { value: "OPENAI", label: "OpenAI (GPT)" },
+              { value: "ANTHROPIC", label: "Anthropic (Claude)" },
+              { value: "GEMINI", label: "Google (Gemini)" },
+              { value: "GROK", label: "xAI (Grok)" },
+            ]}
+          />
+          <Field
+            label="Chave da API"
+            name="apiKey"
+            type="password"
+            placeholder={ai?.apiKeyEnc ? "•••••• (mantém a atual se vazio)" : "Cole a chave da API"}
+            helper="Armazenada criptografada. Usada para petições, explicações e análises."
+          />
+          <Field label="Modelo (opcional)" name="model" defaultValue={ai?.model ?? ""} helper="Vazio = modelo padrão do provedor." />
+          <label className="flex items-center gap-2 text-sm text-muted">
+            <input type="checkbox" name="active" defaultChecked={ai?.active ?? true} className="h-4 w-4 rounded border-border bg-bg accent-gold" />
+            Ativo
+          </label>
+          <div className="flex justify-end">
+            <FormActions cancelHref="/dashboard" submitLabel="Salvar" />
+          </div>
+        </form>
+        {ai?.lastUsed && (
+          <p className="mt-3 text-xs text-muted">
+            {ai.totalRequests} requisição(ões) · {ai.totalTokens} tokens · último uso {ai.lastUsed.toLocaleDateString("pt-BR")}
           </p>
         )}
       </div>

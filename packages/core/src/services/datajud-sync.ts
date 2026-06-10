@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import { decryptSecret } from "../crypto.js";
 import { fetchProcess } from "../adapters/datajud.js";
 import { extractDeadline } from "../br/extracao-prazo.js";
+import { extractHearing } from "../br/extracao-audiencia.js";
 import { computeDeadline } from "../br/prazos.js";
 
 export interface SyncResult {
@@ -10,6 +11,7 @@ export interface SyncResult {
   message: string;
   newMovements?: number;
   newDeadlines?: number;
+  newHearings?: number;
 }
 
 export async function getDatajudApiKey(): Promise<string | null> {
@@ -88,6 +90,7 @@ export async function syncCaseFromDatajud(caseId: string): Promise<SyncResult> {
   const autoExtract = cfg?.autoExtractDeadlines ?? true;
   let newMovements = 0;
   let newDeadlines = 0;
+  let newHearings = 0;
 
   for (const m of dto.movements) {
     const hash = movementHash(m.codigo, m.data, m.descricao);
@@ -99,6 +102,7 @@ export async function syncCaseFromDatajud(caseId: string): Promise<SyncResult> {
     });
     newMovements++;
 
+    // Extração automática de prazo.
     if (autoExtract && m.data) {
       const extracted = extractDeadline(m.descricao);
       if (extracted) {
@@ -119,6 +123,33 @@ export async function syncCaseFromDatajud(caseId: string): Promise<SyncResult> {
         newDeadlines++;
       }
     }
+
+    // Automação de audiências: detecta designação e cria audiência + evento.
+    const hearing = extractHearing(m.descricao);
+    if (hearing && hearing.date.getTime() > Date.now()) {
+      const kaseRow = await prisma.case.findUnique({ where: { id: caseId }, select: { responsibleLawyerId: true } });
+      await prisma.hearing.create({
+        data: {
+          caseId,
+          name: hearing.type,
+          hearingDate: hearing.date,
+          lawyerId: kaseRow?.responsibleLawyerId ?? null,
+          autoCreated: true,
+          notes: `Criada automaticamente do DataJud: "${m.descricao}"`,
+          event: {
+            create: {
+              title: hearing.type,
+              start: hearing.date,
+              end: new Date(hearing.date.getTime() + 3600_000),
+              type: "AUDIENCIA",
+              caseId,
+            },
+          },
+        },
+      });
+      await prisma.datajudMovement.update({ where: { id: mov.id }, data: { hearingExtracted: true } });
+      newHearings++;
+    }
   }
 
   await prisma.datajudConfig
@@ -129,13 +160,19 @@ export async function syncCaseFromDatajud(caseId: string): Promise<SyncResult> {
     data: {
       action: "sync",
       status: "SUCCESS",
-      message: `${newMovements} movimentação(ões), ${newDeadlines} prazo(s)`,
+      message: `${newMovements} mov., ${newDeadlines} prazo(s), ${newHearings} audiência(s)`,
       processNumber: kase.cnjNumber,
       recordsFound: dto.movements.length,
     },
   });
 
-  return { ok: true, message: `Sincronizado: ${newMovements} movimentações novas, ${newDeadlines} prazos`, newMovements, newDeadlines };
+  return {
+    ok: true,
+    message: `Sincronizado: ${newMovements} movimentações, ${newDeadlines} prazos, ${newHearings} audiências`,
+    newMovements,
+    newDeadlines,
+    newHearings,
+  };
 }
 
 /** Sincroniza todos os processos com número CNJ (usado pelo cron do worker). */

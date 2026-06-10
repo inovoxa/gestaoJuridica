@@ -3,6 +3,7 @@
 import { prisma, type CaseStage } from "@legaltech/db";
 import { br } from "@legaltech/core";
 import { requireSession } from "@/lib/session";
+import { services } from "@legaltech/core";
 import { createCardForCase } from "@/lib/chatwoot";
 import { syncCaseFromDatajud } from "@/lib/datajud";
 import { revalidatePath } from "next/cache";
@@ -76,5 +77,18 @@ export async function syncDatajud(id: string) {
   const result = await syncCaseFromDatajud(id);
   revalidatePath(`/processos/${id}`);
   revalidatePath("/prazos");
+  revalidatePath("/audiencias");
   return result;
+}
+
+/** Explica uma movimentação do DataJud em linguagem simples (IA). */
+export async function explainMovement(caseId: string, movementId: string): Promise<{ ok: boolean; message: string }> {
+  const ctx = await requireSession();
+  try {
+    await services.petition.explainMovement(movementId, ctx.userId);
+    revalidatePath(`/processos/${caseId}`);
+    return { ok: true, message: "Explicado" };
+  } catch (err) {
+    return { ok: false, message: (err as Error).message };
+  }
 }

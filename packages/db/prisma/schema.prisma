@@ -219,6 +219,7 @@ model Case {
   invoices    Invoice[]
   events      CalendarEvent[]
   datajudProcess DatajudProcess?
+  petitions   Petition[]
 
   @@index([stage])
   @@index([cnjNumber])
@@ -290,6 +291,11 @@ model Hearing {
   notes         String?
   ata           String?
   resultado     String?
+  /// Criada automaticamente a partir de movimentação do DataJud?
+  autoCreated   Boolean      @default(false)
+  /// Lembretes já enviados (evita duplicidade no worker).
+  reminderSent3d Boolean     @default(false)
+  reminderSent1d Boolean     @default(false)
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt
 
@@ -544,6 +550,65 @@ model ChatwootIntegration {
 }
 
 // ============================================================
+// Inteligência Artificial
+// ============================================================
+
+enum AiProvider {
+  OPENAI
+  ANTHROPIC
+  GEMINI
+  GROK
+}
+
+/// Provedores de IA configurados (escolhido por prioridade entre os ativos).
+model AiConfig {
+  id           String     @id @default(cuid())
+  name         String
+  provider     AiProvider
+  apiKeyEnc    String
+  model        String?
+  active       Boolean    @default(true)
+  priority     Int        @default(10)
+  maxTokens    Int        @default(4000)
+  temperature  Float      @default(0.3)
+  totalRequests Int       @default(0)
+  totalTokens   Int       @default(0)
+  lastUsed     DateTime?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+}
+
+enum PetitionState {
+  DRAFT
+  GENERATING
+  GENERATED
+  REVISED
+  FINALIZED
+}
+
+/// Petição gerada com IA a partir do contexto do processo.
+model Petition {
+  id               String        @id @default(cuid())
+  caseId           String
+  case             Case          @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  name             String
+  petitionType     String
+  userInstructions String?
+  contextSummary   String?
+  generatedContent String?
+  finalContent     String?
+  state            PetitionState @default(DRAFT)
+  aiProvider       String?
+  aiModel          String?
+  aiTokens         Int?
+  generatedAt      DateTime?
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  @@index([caseId])
+}
+
+// ============================================================
 // DataJud (CNJ) — consulta processual automática
 // ============================================================
 
@@ -606,6 +671,10 @@ model DatajudMovement {
   hash        String
   /// Prazo já extraído a partir desta movimentação?
   deadlineExtracted Boolean  @default(false)
+  /// Audiência já extraída a partir desta movimentação?
+  hearingExtracted  Boolean  @default(false)
+  /// Explicação em linguagem simples gerada por IA.
+  aiExplanation     String?
   createdAt   DateTime       @default(now())
 
   @@unique([processId, hash])

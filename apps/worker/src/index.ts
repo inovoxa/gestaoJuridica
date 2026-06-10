@@ -1,6 +1,7 @@
 import { Worker } from "bullmq";
 import { connection, QUEUE_NAMES, deadlinesQueue, documentsQueue, googleQueue, datajudQueue } from "./queues.js";
 import { checkDeadlines } from "./jobs/check-deadlines.js";
+import { checkHearings } from "./jobs/check-hearings.js";
 import { purgeExpiredDocuments } from "./jobs/purge-documents.js";
 import { pullGoogleCalendar } from "./jobs/google-pull.js";
 import { syncDatajud } from "./jobs/datajud-sync.js";
@@ -14,6 +15,7 @@ const deadlinesWorker = new Worker(
   QUEUE_NAMES.deadlines,
   async (job) => {
     if (job.name === "check-deadlines") return checkDeadlines();
+    if (job.name === "check-hearings") return checkHearings();
     return null;
   },
   { connection },
@@ -54,6 +56,8 @@ for (const w of [deadlinesWorker, documentsWorker, googleWorker, datajudWorker])
 async function registerSchedulers() {
   // Verificação de prazos a cada 2h (equivalente ao cron Datajud do Odoo).
   await deadlinesQueue.upsertJobScheduler("check-deadlines-2h", { every: 2 * 60 * 60 * 1000 }, { name: "check-deadlines" });
+  // Lembretes de audiência (3d/1d) — verificação a cada 6h.
+  await deadlinesQueue.upsertJobScheduler("check-hearings-6h", { every: 6 * 60 * 60 * 1000 }, { name: "check-hearings" });
   // Purga de documentos diária.
   await documentsQueue.upsertJobScheduler("purge-documents-daily", { every: 24 * 60 * 60 * 1000 }, { name: "purge-expired" });
   // Pull do Google Calendar a cada 10 min (sync bidirecional de entrada).

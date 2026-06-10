@@ -58,8 +58,15 @@ pnpm worker     # worker de jobs/crons
 - **Fase 0 — Fundação** ✅: monorepo, schema single-tenant, auth/RBAC, util BR, worker, tema dark, website público.
 - **Fase 1 — MVP núcleo** ✅: CRUD clientes, processos (lista/criar/detalhe + stage), prazos (dias úteis CPC), audiências, agenda, **Google Calendar bidirecional (OAuth2)**, **upload de documentos** (storage local/S3 + ciclo de vida) e **integração Chatwoot** (lead do site, card de processo no funil, página de configuração).
 - **Fase 2 — DataJud + automação de prazos** ✅: integração com a API pública DataJud (CNJ) — sync de capa + movimentações por número CNJ; **extração automática de prazos** das movimentações (palavras-chave + dias úteis CPC); sync diário no worker; **alertas de prazo via Chatwoot** (5d/3d/1d/vencimento). Config em /config.
-- **Fase 3 — IA**: petições, jurisprudência, validação de documentos (+ consentimento LGPD/OAB).
+- **Fase 3 — IA** ✅: adapter multi-provedor (OpenAI/Anthropic/Gemini/Grok); **geração de petições** com contexto do processo; **explicação de movimentações** em linguagem simples; **consentimento LGPD/OAB** (Recomendação 001/2024) bloqueando IA sem autorização do cliente; uso auditado (AuditLog). Config em /config.
+- **Automação de audiências** ✅: audiências detectadas automaticamente nas movimentações do DataJud (designação com data/hora) → criam `Hearing` + evento na agenda; lembretes 3d/1d via Chatwoot.
 - **Fase 4 — Portal do cliente, Google Drive, financeiro/relatórios**.
+
+## Automação de audiências — integração via DataJud
+
+A **API Pública do DataJud (CNJ)** não possui um endpoint dedicado de audiências: as designações chegam dentro das **movimentações** (`movimentos[]`). O sistema lê cada movimentação no sync, detecta termos de audiência + data/hora (`packages/core/br/extracao-audiencia.ts`) e cria a audiência + evento automaticamente.
+
+**APIs nativas dos tribunais (futuro, opcional):** PJe, e-SAJ, Projudi e Eproc expõem agendas estruturadas (audiências futuras/realizadas, links de videoconferência), porém exigem **autenticação/convênio institucional** por tribunal. A arquitetura de adapters (`packages/core/adapters`) permite plugar esses provedores quando houver credencial — sem alterar o restante do fluxo.
 
 ## Google Calendar (sync bidirecional)
 

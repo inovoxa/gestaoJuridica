@@ -4,6 +4,7 @@ import { prisma } from "@legaltech/db";
 import { requireSession } from "@/lib/session";
 import { StageControl } from "@/components/stage-control";
 import { DatajudSync } from "@/components/datajud-sync";
+import { MovementExplain } from "@/components/movement-explain";
 import { DeleteButton } from "@/components/ui/delete-button";
 import { changeStage, deleteCase } from "../actions";
 import {
@@ -15,7 +16,7 @@ import {
   DEADLINE_STATUS_LABEL,
   DEADLINE_STATUS_BADGE,
 } from "@/lib/format";
-import { Lock, ArrowLeft } from "lucide-react";
+import { Lock, ArrowLeft, FileSignature } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -61,7 +62,16 @@ export default async function ProcessoDetalhePage({ params }: { params: Promise<
           </h1>
           {c.cnjNumber && <p className="text-sm text-muted">CNJ: {c.cnjNumber}</p>}
         </div>
-        <DeleteButton action={deleteCase.bind(null, c.id)} label="Excluir processo" />
+        <div className="flex items-center gap-2">
+          <Link
+            href={`/processos/${c.id}/peticoes`}
+            className="flex items-center gap-1.5 rounded-lg border border-gold/40 px-3 py-1.5 text-xs font-medium text-gold transition-colors hover:bg-gold/10"
+          >
+            <FileSignature className="h-3.5 w-3.5" strokeWidth={1.75} />
+            Petições (IA)
+          </Link>
+          <DeleteButton action={deleteCase.bind(null, c.id)} label="Excluir processo" />
+        </div>
       </div>
 
       <div className="card p-5">
@@ -139,12 +149,21 @@ export default async function ProcessoDetalhePage({ params }: { params: Promise<
               Nenhuma movimentação sincronizada. Clique em “Sincronizar DataJud” para buscar no CNJ.
             </p>
           ) : (
-            <ul className="space-y-2">
+            <ul className="space-y-3">
               {c.datajudProcess.movements.map((m) => (
-                <li key={m.id} className="flex items-start gap-3 border-b border-border/60 pb-2 text-sm last:border-0">
-                  <span className="mt-0.5 w-20 shrink-0 tabular-nums text-xs text-muted">{formatDate(m.data)}</span>
-                  <span className="flex-1 text-foreground">{m.descricao}</span>
-                  {m.deadlineExtracted && <span className="badge badge-warning shrink-0">prazo</span>}
+                <li key={m.id} className="border-b border-border/60 pb-3 text-sm last:border-0">
+                  <div className="flex items-start gap-3">
+                    <span className="mt-0.5 w-20 shrink-0 tabular-nums text-xs text-muted">{formatDate(m.data)}</span>
+                    <span className="flex-1 text-foreground">{m.descricao}</span>
+                    {m.deadlineExtracted && <span className="badge badge-warning shrink-0">prazo</span>}
+                    {m.hearingExtracted && <span className="badge badge-info shrink-0">audiência</span>}
+                    <MovementExplain caseId={c.id} movementId={m.id} />
+                  </div>
+                  {m.aiExplanation && (
+                    <p className="ml-[5.75rem] mt-1.5 rounded-md bg-gold/5 px-3 py-2 text-xs text-muted ring-1 ring-inset ring-gold/15">
+                      {m.aiExplanation}
+                    </p>
+                  )}
                 </li>
               ))}
             </ul>
