@@ -1,6 +1,7 @@
 import { Sidebar } from "@/components/sidebar";
-import { requireSession } from "@/lib/tenant";
+import { requireSession, getFirm } from "@/lib/session";
 import { signOut } from "@/lib/auth";
+import { LogOut } from "lucide-react";
 
 const ROLE_LABEL: Record<string, string> = {
   ADMIN_ESCRITORIO: "Administrador",
@@ -10,7 +11,7 @@ const ROLE_LABEL: Record<string, string> = {
 };
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
-  const ctx = await requireSession();
+  const [ctx, firm] = await Promise.all([requireSession(), getFirm()]);
 
   async function logout() {
     "use server";
@@ -18,19 +19,26 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   }
 
   return (
-    <div className="flex min-h-screen">
-      <Sidebar />
+    <div className="flex min-h-dvh">
+      <Sidebar firmName={firm?.name ?? "Escritório"} />
       <div className="flex flex-1 flex-col">
-        <header className="flex items-center justify-between border-b bg-white px-6 py-3">
-          <div className="text-sm text-gray-500">
-            <span className="font-semibold text-brand">{ctx.accountName}</span>
+        <header className="flex items-center justify-between border-b border-border bg-surface/60 px-6 py-3 backdrop-blur">
+          <div className="text-sm text-muted">
+            Painel de gestão jurídica
           </div>
           <div className="flex items-center gap-4 text-sm">
-            <span className="text-gray-600">
-              {ctx.name} · {ROLE_LABEL[ctx.role] ?? ctx.role}
-            </span>
+            <div className="text-right leading-tight">
+              <div className="font-medium text-foreground">{ctx.name}</div>
+              <div className="text-xs text-muted">{ROLE_LABEL[ctx.role] ?? ctx.role}</div>
+            </div>
             <form action={logout}>
-              <button className="rounded-md border border-gray-300 px-3 py-1 text-xs hover:bg-gray-50">Sair</button>
+              <button
+                className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs text-muted transition-colors hover:border-gold/40 hover:text-foreground"
+                aria-label="Sair do sistema"
+              >
+                <LogOut className="h-3.5 w-3.5" />
+                Sair
+              </button>
             </form>
           </div>
         </header>

@@ -18,11 +18,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const password = String(credentials?.password ?? "");
         if (!email || !password) return null;
 
-        const user = await prisma.user.findFirst({
-          where: { email, active: true },
-          include: { account: true },
-        });
-        if (!user || !user.account.active) return null;
+        const user = await prisma.user.findUnique({ where: { email } });
+        if (!user || !user.active) return null;
         if (!(await verifyPassword(password, user.passwordHash))) return null;
 
         return {
@@ -30,8 +27,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           name: user.name,
           email: user.email,
           role: user.role,
-          accountId: user.accountId,
-          accountName: user.account.name,
         };
       },
     }),
@@ -40,8 +35,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     jwt: ({ token, user }) => {
       if (user) {
         token.role = user.role;
-        token.accountId = user.accountId;
-        token.accountName = user.accountName;
       }
       return token;
     },
@@ -49,8 +42,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       if (session.user) {
         session.user.id = token.sub!;
         session.user.role = token.role;
-        session.user.accountId = token.accountId;
-        session.user.accountName = token.accountName;
       }
       return session;
     },

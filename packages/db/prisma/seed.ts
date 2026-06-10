@@ -3,54 +3,76 @@ import { createHash } from "node:crypto";
 
 const prisma = new PrismaClient();
 
-// Hash simples só para o seed; em produção usar bcrypt/argon2 (apps/web/lib/auth).
 function seedHash(password: string): string {
   return "seed$" + createHash("sha256").update(password).digest("hex");
 }
 
 async function main() {
-  console.log("🌱 Semeando dados de demonstração...");
+  console.log("🌱 Semeando dados de demonstração (escritório único)...");
 
-  // Dois escritórios para validar o isolamento multi-tenant.
-  const escritorioA = await prisma.account.create({
-    data: {
-      name: "Silva & Associados Advocacia",
+  // Escritório (singleton) + conteúdo do website
+  await prisma.firm.upsert({
+    where: { id: "firm" },
+    update: {},
+    create: {
+      id: "firm",
+      name: "Silva & Associados",
+      legalName: "Silva & Associados Sociedade de Advogados",
       cnpj: "12.345.678/0001-90",
-      users: {
-        create: [
-          {
-            email: "admin@silva.adv.br",
-            name: "Administrador Silva",
-            passwordHash: seedHash("admin123"),
-            role: UserRole.ADMIN_ESCRITORIO,
-          },
-        ],
-      },
-    },
-    include: { users: true },
-  });
-
-  const escritorioB = await prisma.account.create({
-    data: {
-      name: "Costa Advogados",
-      cnpj: "98.765.432/0001-10",
-      users: {
-        create: [
-          {
-            email: "admin@costa.adv.br",
-            name: "Administrador Costa",
-            passwordHash: seedHash("admin123"),
-            role: UserRole.ADMIN_ESCRITORIO,
-          },
-        ],
-      },
+      oab: "OAB/SP 12.345",
+      email: "contato@silva.adv.br",
+      phone: "(16) 3333-4444",
+      whatsapp: "5516999998888",
+      street: "Av. São Paulo",
+      number: "1500",
+      complement: "Conjunto 1201",
+      district: "Centro",
+      city: "Araraquara",
+      state: "SP",
+      zip: "14800-000",
+      mapsUrl: "https://maps.google.com/?q=Araraquara",
+      tagline: "Advocacia com tradição, técnica e resultado.",
+      heroTitle: "Defesa jurídica de alto nível para você e sua empresa",
+      heroSubtitle:
+        "Atuação estratégica e personalizada em Direito Civil, Trabalhista, Empresarial e Tributário.",
+      aboutTitle: "Sobre o escritório",
+      aboutBody:
+        "Há mais de 20 anos, o Silva & Associados oferece assessoria jurídica completa, unindo experiência, ética e tecnologia para proteger os interesses de seus clientes.",
+      socialLinks: { instagram: "https://instagram.com/", linkedin: "https://linkedin.com/" },
     },
   });
 
-  // Advogado vinculado a um usuário no escritório A.
-  const userAdv = await prisma.user.create({
-    data: {
-      accountId: escritorioA.id,
+  // Áreas de atuação (website)
+  const areas = [
+    { name: "Direito Civil", slug: "civil", icon: "Scale", summary: "Contratos, família, sucessões e responsabilidade civil." },
+    { name: "Direito Trabalhista", slug: "trabalhista", icon: "Briefcase", summary: "Reclamatórias, acordos e consultoria preventiva." },
+    { name: "Direito Empresarial", slug: "empresarial", icon: "Building2", summary: "Societário, contratos e recuperação de crédito." },
+    { name: "Direito Tributário", slug: "tributario", icon: "Landmark", summary: "Planejamento, defesas fiscais e recuperação de tributos." },
+  ];
+  for (const [i, a] of areas.entries()) {
+    await prisma.practiceArea.upsert({
+      where: { slug: a.slug },
+      update: {},
+      create: { ...a, order: i },
+    });
+  }
+
+  // Usuários
+  await prisma.user.upsert({
+    where: { email: "admin@silva.adv.br" },
+    update: {},
+    create: {
+      email: "admin@silva.adv.br",
+      name: "Administrador",
+      passwordHash: seedHash("admin123"),
+      role: UserRole.ADMIN_ESCRITORIO,
+    },
+  });
+
+  const userAdv = await prisma.user.upsert({
+    where: { email: "joao@silva.adv.br" },
+    update: {},
+    create: {
       email: "joao@silva.adv.br",
       name: "João Silva",
       passwordHash: seedHash("advogado123"),
@@ -58,46 +80,38 @@ async function main() {
     },
   });
 
-  const advogado = await prisma.lawyer.create({
-    data: {
-      accountId: escritorioA.id,
+  const advogado = await prisma.lawyer.upsert({
+    where: { userId: userAdv.id },
+    update: {},
+    create: {
       userId: userAdv.id,
       name: "João Silva",
       oab: "123456",
       oabUf: "SP",
       email: "joao@silva.adv.br",
+      publicProfile: true,
+      title: "Sócio fundador",
+      bio: "Especialista em Direito Civil e Empresarial, com mais de 20 anos de atuação.",
+      specialties: "Civil, Empresarial",
+      order: 0,
     },
   });
 
-  // Tipos de processo, tribunal e juiz.
-  const tipoCivel = await prisma.caseType.create({
-    data: { accountId: escritorioA.id, name: "Cível", code: "CIV" },
-  });
-  await prisma.caseType.create({
-    data: { accountId: escritorioA.id, name: "Trabalhista", code: "TRA" },
-  });
-
+  // Tipos, tribunal, juiz
+  const tipoCivel = await prisma.caseType.create({ data: { name: "Cível", code: "CIV" } });
+  await prisma.caseType.create({ data: { name: "Trabalhista", code: "TRA" } });
   const tribunal = await prisma.court.create({
-    data: { accountId: escritorioA.id, name: "TJSP - 2ª Vara Cível", city: "São Paulo", state: "SP" },
+    data: { name: "TJSP - 2ª Vara Cível", city: "Araraquara", state: "SP" },
   });
-  const juiz = await prisma.judge.create({
-    data: { accountId: escritorioA.id, name: "Dr. Carlos Mendes", courtId: tribunal.id },
-  });
+  const juiz = await prisma.judge.create({ data: { name: "Dr. Carlos Mendes", courtId: tribunal.id } });
 
-  // Cliente + processo de exemplo.
+  // Cliente + processo + audiência + prazo
   const cliente = await prisma.client.create({
-    data: {
-      accountId: escritorioA.id,
-      name: "Maria Oliveira",
-      cpfCnpj: "123.456.789-00",
-      email: "maria@exemplo.com",
-      phone: "+5511999998888",
-    },
+    data: { name: "Maria Oliveira", cpfCnpj: "123.456.789-00", email: "maria@exemplo.com", phone: "+5516999990000" },
   });
 
   const processo = await prisma.case.create({
     data: {
-      accountId: escritorioA.id,
       caseNumber: "PROC/00001",
       cnjNumber: "0018063-19.2013.8.26.0002",
       stage: CaseStage.IN_PROGRESS,
@@ -107,21 +121,12 @@ async function main() {
       courtId: tribunal.id,
       judgeId: juiz.id,
       oppositeParty: "Empresa XYZ Ltda.",
-      caseLawyers: {
-        create: {
-          lawyerId: advogado.id,
-          userId: userAdv.id,
-          permission: "WRITE",
-          isOwner: true,
-        },
-      },
+      caseLawyers: { create: { lawyerId: advogado.id, userId: userAdv.id, permission: "WRITE", isOwner: true } },
     },
   });
 
-  // Audiência e prazo de exemplo.
   await prisma.hearing.create({
     data: {
-      accountId: escritorioA.id,
       caseId: processo.id,
       name: "Audiência de Instrução",
       hearingDate: new Date(Date.now() + 7 * 24 * 3600 * 1000),
@@ -131,7 +136,6 @@ async function main() {
 
   await prisma.deadline.create({
     data: {
-      accountId: escritorioA.id,
       caseId: processo.id,
       deadlineType: DeadlineType.INTIMACAO,
       originDate: new Date(),
@@ -141,10 +145,10 @@ async function main() {
   });
 
   console.log("✅ Seed concluído:");
-  console.log(`   • Escritório A: ${escritorioA.name} (admin@silva.adv.br / admin123)`);
-  console.log(`   • Escritório B: ${escritorioB.name} (admin@costa.adv.br / admin123)`);
-  console.log(`   • Advogado: joao@silva.adv.br / advogado123`);
-  console.log(`   • 1 cliente, 1 processo, 1 audiência, 1 prazo`);
+  console.log("   • Escritório: Silva & Associados (website + dados)");
+  console.log("   • Admin:    admin@silva.adv.br / admin123");
+  console.log("   • Advogado: joao@silva.adv.br / advogado123");
+  console.log("   • 4 áreas de atuação, 1 cliente, 1 processo, 1 audiência, 1 prazo");
 }
 
 main()

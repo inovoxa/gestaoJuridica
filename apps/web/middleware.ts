@@ -2,18 +2,25 @@ import { auth } from "./lib/auth";
 import { NextResponse } from "next/server";
 
 /**
- * Protege todas as rotas exceto as públicas (login, assets, auth API).
- * O escopo multi-tenant é reforçado nas queries via requireSession().
+ * Rotas do PAINEL (privadas) exigem login. O WEBSITE público e o login são abertos.
  */
+const PRIVATE_PREFIXES = [
+  "/dashboard",
+  "/clientes",
+  "/processos",
+  "/audiencias",
+  "/agenda",
+  "/prazos",
+  "/documentos",
+  "/portal",
+  "/config",
+];
+
 export default auth((req) => {
   const { pathname } = req.nextUrl;
-  const isPublic =
-    pathname.startsWith("/login") ||
-    pathname.startsWith("/api/auth") ||
-    pathname.startsWith("/_next") ||
-    pathname === "/favicon.ico";
+  const isPrivate = PRIVATE_PREFIXES.some((p) => pathname === p || pathname.startsWith(p + "/"));
 
-  if (!req.auth && !isPublic) {
+  if (isPrivate && !req.auth) {
     const url = new URL("/login", req.nextUrl.origin);
     url.searchParams.set("callbackUrl", pathname);
     return NextResponse.redirect(url);

@@ -2,13 +2,68 @@
 @tailwind components;
 @tailwind utilities;
 
+/*
+ * Tema dark "Trust & Authority" — advocacia.
+ * Navy profundo como base, dourado como acento institucional.
+ * Valores RGB (sem vírgula) para uso com <alpha-value> do Tailwind.
+ */
 :root {
-  --background: #f5f6f8;
-  --foreground: #1a1a1a;
+  --bg: 9 14 26; /* #090E1A navy quase preto */
+  --surface: 17 24 41; /* #111829 cartão */
+  --surface-2: 24 33 56; /* #182138 elevado */
+  --border: 34 45 71; /* #222D47 */
+  --foreground: 232 237 245; /* #E8EDF5 texto primário */
+  --muted: 148 163 184; /* #94A3B8 texto secundário */
+
+  --navy: 37 99 235; /* #2563EB azul interativo */
+  --navy-light: 96 165 250; /* #60A5FA */
+  --gold: 201 162 39; /* #C9A227 dourado */
+  --gold-soft: 212 175 55; /* #D4AF37 */
+
+  --success: 34 197 94; /* #22C55E */
+  --warning: 245 158 11; /* #F59E0B */
+  --danger: 239 68 68; /* #EF4444 */
+  --info: 59 130 246; /* #3B82F6 */
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+@layer base {
+  html {
+    color-scheme: dark;
+  }
+  body {
+    background-color: rgb(var(--bg));
+    color: rgb(var(--foreground));
+    font-family: var(--font-sans), system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  h1, h2, h3, h4 {
+    font-family: var(--font-serif), Georgia, serif;
+  }
+  ::selection {
+    background: rgb(var(--gold) / 0.3);
+  }
+}
+
+@layer components {
+  /* Badge de status (processo/prazo) */
+  .badge {
+    @apply inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset;
+  }
+  .badge-success { @apply bg-success/10 text-success ring-success/30; }
+  .badge-warning { @apply bg-warning/10 text-warning ring-warning/30; }
+  .badge-danger  { @apply bg-danger/10 text-danger ring-danger/30; }
+  .badge-info    { @apply bg-info/10 text-info ring-info/30; }
+  .badge-muted   { @apply bg-muted/10 text-muted ring-muted/30; }
+
+  .card {
+    @apply rounded-xl border border-border bg-surface shadow-card;
+  }
+}
+
+/* Respeita usuários que pedem menos movimento */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
 }

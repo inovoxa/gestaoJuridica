@@ -1,16 +1,22 @@
-# LegalTech BR — Sistema de Gestão Jurídica
+# LegalTech BR — Sistema de Gestão Jurídica + Website
 
-Sistema SaaS **independente** (não-Odoo) para escritórios de advocacia brasileiros, aderente à **LGPD** e ao **sigilo profissional (OAB)**, integrado ao CRM **Chatwoot** (Kanban/Funis/Atendimentos).
+Sistema **independente** (não-Odoo) para escritório de advocacia brasileiro, aderente à **LGPD** e ao **sigilo profissional (OAB)**, integrado ao CRM **Chatwoot** (Kanban/Funis/Atendimentos).
+
+**Arquitetura single-tenant:** uma instância por escritório. Cada deploy serve **um** escritório e inclui:
+1. **Painel de gestão** (privado) — processos, clientes, audiências, prazos, documentos, agenda, dashboard.
+2. **Website institucional** (público) — home com endereço/contato, áreas de atuação, sobre, equipe e formulário de contato (vira lead no Chatwoot).
+
+UI **dark** sofisticada (estilo "Trust & Authority": navy + dourado, fontes EB Garamond/Lato).
 
 Reconstrução, como aplicação web própria, do domínio do módulo Odoo `eb_law_management` (usado apenas como especificação funcional de referência).
 
 ## Stack
 
-- **Next.js 15** (App Router, TypeScript) — UI + API própria (`/api/v1`)
-- **PostgreSQL + Prisma** — multi-tenant por `accountId` (escritório)
+- **Next.js 15** (App Router, React 19, TypeScript) — painel + website + API própria
+- **PostgreSQL + Prisma** — single-tenant (escritório = `Firm` singleton)
 - **Worker Node + BullMQ + Redis** — crons e tarefas pesadas (sync DataJud, alertas de prazo, IA)
-- **Tailwind + shadcn/ui** — interface
-- **Auth.js** — autenticação, RBAC, multi-tenant
+- **Tailwind** (tema dark navy+dourado) + **lucide-react** (ícones)
+- **Auth.js** — autenticação + RBAC (admin, advogado, secretaria, cliente)
 - **Storage plugável** — local / S3 (MinIO) / Google Drive
 
 ## Estrutura (monorepo pnpm + Turborepo)
