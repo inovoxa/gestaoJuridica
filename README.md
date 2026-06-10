@@ -53,6 +53,10 @@ pnpm dev        # Next.js em http://localhost:3000
 pnpm worker     # worker de jobs/crons
 ```
 
+## Deploy em produção
+
+Imagem única (`Dockerfile`) que roda como **web** ou **worker**; stack para **Docker Swarm + Portainer + Traefik** em `docker-stack.yml`. Passo a passo completo em **[DEPLOY.md](DEPLOY.md)** (build/push da imagem, rede overlay do Traefik, variáveis, primeira subida com seed).
+
 ## Roadmap (fases)
 
 - **Fase 0 — Fundação** ✅: monorepo, schema single-tenant, auth/RBAC, util BR, worker, tema dark, website público.

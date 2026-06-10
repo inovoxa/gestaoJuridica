@@ -12,6 +12,7 @@
     "generate": "prisma generate",
     "migrate": "prisma migrate dev",
     "migrate:deploy": "prisma migrate deploy",
+    "push": "prisma db push --skip-generate",
     "seed": "tsx prisma/seed.ts",
     "studio": "prisma studio",
     "lint": "echo \"(sem lint)\""

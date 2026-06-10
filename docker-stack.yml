@@ -1,0 +1,117 @@
+# LegalTech BR — stack de produção para Docker Swarm (Portainer + Traefik).
+#
+# Pré-requisitos:
+#   - Imagem publicada num registry acessível pelos nós do swarm:
+#       docker build -t SEU_REGISTRY/legaltech-app:latest .
+#       docker push SEU_REGISTRY/legaltech-app:latest
+#   - Rede overlay externa do Traefik já criada (ex.: "traefik-public"):
+#       docker network create --driver overlay --attachable traefik-public
+#   - Traefik configurado com o provider do Swarm e um entrypoint "websecure" (443) + certresolver.
+#
+# Deploy (ou cole no Portainer > Stacks > Add stack):
+#   docker stack deploy -c docker-stack.yml legaltech
+#
+# Variáveis (Portainer: aba "Environment variables"): ver .env.production.example
+
+version: "3.8"
+
+x-app-env: &app-env
+  NODE_ENV: production
+  DATABASE_URL: "postgresql://legaltech:${POSTGRES_PASSWORD}@postgres:5432/legaltech?schema=public"
+  REDIS_URL: "redis://redis:6379"
+  CREDENTIALS_ENCRYPTION_KEY: "${CREDENTIALS_ENCRYPTION_KEY}"
+  STORAGE_DRIVER: "${STORAGE_DRIVER:-local}"
+  STORAGE_LOCAL_PATH: "/data/storage"
+  DOC_DELETION_DELAY_DAYS: "${DOC_DELETION_DELAY_DAYS:-30}"
+  GOOGLE_CLIENT_ID: "${GOOGLE_CLIENT_ID:-}"
+  GOOGLE_CLIENT_SECRET: "${GOOGLE_CLIENT_SECRET:-}"
+  GOOGLE_REDIRECT_URI: "https://${APP_DOMAIN}/api/google/callback"
+  # S3/MinIO (quando STORAGE_DRIVER=s3)
+  S3_ENDPOINT: "${S3_ENDPOINT:-}"
+  S3_REGION: "${S3_REGION:-us-east-1}"
+  S3_BUCKET: "${S3_BUCKET:-legaltech-docs}"
+  S3_ACCESS_KEY_ID: "${S3_ACCESS_KEY_ID:-}"
+  S3_SECRET_ACCESS_KEY: "${S3_SECRET_ACCESS_KEY:-}"
+  S3_FORCE_PATH_STYLE: "${S3_FORCE_PATH_STYLE:-true}"
+
+services:
+  web:
+    image: ${IMAGE:-SEU_REGISTRY/legaltech-app:latest}
+    command: ["web"]
+    environment:
+      <<: *app-env
+      AUTH_SECRET: "${AUTH_SECRET}"
+      AUTH_URL: "https://${APP_DOMAIN}"
+      APP_URL: "https://${APP_DOMAIN}"
+      # web aplica o schema no deploy (1 réplica). Defina RUN_SEED=true só na 1ª subida.
+      RUN_MIGRATIONS: "true"
+      RUN_SEED: "${RUN_SEED:-false}"
+    volumes:
+      - storage:/data/storage
+    networks:
+      - traefik-public
+      - internal
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: any
+      labels:
+        - "traefik.enable=true"
+        - "traefik.docker.network=traefik-public"
+        - "traefik.http.routers.legaltech.rule=Host(`${APP_DOMAIN}`)"
+        - "traefik.http.routers.legaltech.entrypoints=websecure"
+        - "traefik.http.routers.legaltech.tls=true"
+        - "traefik.http.routers.legaltech.tls.certresolver=${TRAEFIK_CERTRESOLVER:-letsencrypt}"
+        - "traefik.http.services.legaltech.loadbalancer.server.port=3000"
+
+  worker:
+    image: ${IMAGE:-SEU_REGISTRY/legaltech-app:latest}
+    command: ["worker"]
+    environment:
+      <<: *app-env
+    volumes:
+      - storage:/data/storage
+    networks:
+      - internal
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: any
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: legaltech
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD}"
+      POSTGRES_DB: legaltech
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - internal
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: any
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redisdata:/data
+    networks:
+      - internal
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: any
+
+networks:
+  traefik-public:
+    external: true
+  internal:
+    driver: overlay
+
+volumes:
+  pgdata:
+  redisdata:
+  storage:
