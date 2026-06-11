@@ -13,18 +13,28 @@ O sistema roda como **uma imagem única** (`Dockerfile`) que serve tanto a aplic
 docker network create --driver overlay --attachable traefik-public
 ```
 
-## 2. Build e push da imagem
+## 2. Imagem da aplicação
 
+### Opção A — CI automática (recomendada)
+O workflow `.github/workflows/docker-publish.yml` builda e publica no **GHCR** a cada push na `main`:
+- Imagem: `ghcr.io/inovoxa/gestaojuridica:latest`
+- Roda os testes do core (CNJ/prazos) antes de publicar.
+
+**Tornar a imagem acessível ao swarm:**
+- **Pacote público:** em GitHub → *Packages* → `gestaojuridica` → *Package settings* → *Change visibility → Public*. Aí o swarm baixa sem login.
+- **Pacote privado:** autentique os nós (ou cadastre o registry no Portainer):
+  ```bash
+  echo "$GHCR_PAT" | docker login ghcr.io -u SEU_USUARIO --password-stdin
+  ```
+  (PAT com escopo `read:packages`)
+
+### Opção B — build manual
 O Swarm **não constrói** imagem a partir do stack — publique num registry acessível pelos nós:
-
 ```bash
 docker build -t SEU_REGISTRY/legaltech-app:latest .
 docker push SEU_REGISTRY/legaltech-app:latest
 ```
-
-> Swarm de **um nó só**: pode pular o push e usar a imagem local (`docker build -t legaltech-app:latest .` e `IMAGE=legaltech-app:latest`).
->
-> No **Portainer** também dá para construir: *Images → Build a new image* (a partir do repositório Git), depois faça o push para o registry.
+> Swarm de **um nó só**: pode usar a imagem local (`docker build -t legaltech-app:latest .` e `IMAGE=legaltech-app:latest`).
 
 ## 3. Subir o stack
 
@@ -65,10 +75,12 @@ docker stack deploy -c docker-stack.yml legaltech
 
 ## 6. Atualizações
 
+Com a CI ativa, cada push na `main` republica `ghcr.io/inovoxa/gestaojuridica:latest`. Para aplicar no swarm:
+
 ```bash
-docker build -t SEU_REGISTRY/legaltech-app:latest .
-docker push SEU_REGISTRY/legaltech-app:latest
-docker service update --image SEU_REGISTRY/legaltech-app:latest legaltech_web
-docker service update --image SEU_REGISTRY/legaltech-app:latest legaltech_worker
+docker service update --image ghcr.io/inovoxa/gestaojuridica:latest legaltech_web
+docker service update --image ghcr.io/inovoxa/gestaojuridica:latest legaltech_worker
 ```
-(ou recarregue o stack no Portainer)
+(ou no Portainer: *Stacks → legaltech → Update / Pull and redeploy*)
+
+> Dica: para releases versionadas, crie uma tag `vX.Y.Z` — a CI publica a imagem com a mesma tag.

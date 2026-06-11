@@ -55,7 +55,7 @@ pnpm worker     # worker de jobs/crons
 
 ## Deploy em produção
 
-Imagem única (`Dockerfile`) que roda como **web** ou **worker**; stack para **Docker Swarm + Portainer + Traefik** em `docker-stack.yml`. Passo a passo completo em **[DEPLOY.md](DEPLOY.md)** (build/push da imagem, rede overlay do Traefik, variáveis, primeira subida com seed).
+Imagem única (`Dockerfile`) que roda como **web** ou **worker**; stack para **Docker Swarm + Portainer + Traefik** em `docker-stack.yml`. A cada push na `main`, o GitHub Actions builda e publica a imagem no **GHCR** (`ghcr.io/inovoxa/gestaojuridica`). Passo a passo completo em **[DEPLOY.md](DEPLOY.md)** (imagem, rede overlay do Traefik, variáveis, primeira subida com seed).
 
 ## Roadmap (fases)
 
