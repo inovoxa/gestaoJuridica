@@ -33,7 +33,7 @@ export function extractHearing(text: string): ExtractedHearing | null {
   if (isNaN(date.getTime())) return null;
 
   const typeMatch = text.match(TYPE_RE);
-  const type = typeMatch ? `Audiência ${typeMatch[1].trim()}`.replace(/\s+/g, " ") : "Audiência designada";
+  const type = typeMatch ? `Audiência ${(typeMatch[1] ?? "").trim()}`.replace(/\s+/g, " ") : "Audiência designada";
 
   return { date, type };
 }

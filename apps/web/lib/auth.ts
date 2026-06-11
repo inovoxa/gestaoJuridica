@@ -1,12 +1,11 @@
-import NextAuth from "next-auth";
+import NextAuth, { type NextAuthResult } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import { prisma } from "@legaltech/db";
+import { authConfig } from "./auth.config";
 import { verifyPassword } from "./password";
 
-export const { handlers, auth, signIn, signOut } = NextAuth({
-  session: { strategy: "jwt" },
-  pages: { signIn: "/login" },
-  trustHost: true,
+const result = NextAuth({
+  ...authConfig,
   providers: [
     Credentials({
       credentials: {
@@ -31,19 +30,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       },
     }),
   ],
-  callbacks: {
-    jwt: ({ token, user }) => {
-      if (user) {
-        token.role = user.role;
-      }
-      return token;
-    },
-    session: ({ session, token }) => {
-      if (session.user) {
-        session.user.id = token.sub!;
-        session.user.role = token.role;
-      }
-      return session;
-    },
-  },
+  // session/pages/trustHost/callbacks vêm de authConfig (...authConfig acima).
 });
+
+// Anotações explícitas evitam o TS2742 do next-auth v5 + pnpm
+// ("inferred type cannot be named without a reference to next-auth/lib").
+export const handlers: NextAuthResult["handlers"] = result.handlers;
+export const auth: NextAuthResult["auth"] = result.auth;
+export const signIn: NextAuthResult["signIn"] = result.signIn;
+export const signOut: NextAuthResult["signOut"] = result.signOut;

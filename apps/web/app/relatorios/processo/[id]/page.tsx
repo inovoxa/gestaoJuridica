@@ -94,7 +94,7 @@ export default async function RelatorioProcesso({ params }: { params: Promise<{ 
               <Empty />
             ) : (
               c.deadlines.map((d) => (
-                <Row key={d.id} left={DEADLINE_LABEL[d.deadlineType]} right={`vence ${formatDate(d.deadlineDate)}`} />
+                <Row key={d.id} left={DEADLINE_LABEL[d.deadlineType] ?? d.deadlineType} right={`vence ${formatDate(d.deadlineDate)}`} />
               ))
             )}
           </Section>

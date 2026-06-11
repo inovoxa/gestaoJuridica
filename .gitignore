@@ -33,3 +33,6 @@ Thumbs.db
 
 # Testes
 coverage/
+
+# Build incremental do TypeScript
+*.tsbuildinfo

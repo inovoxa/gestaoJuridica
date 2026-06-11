@@ -1,4 +1,4 @@
-import { prisma, type DatajudProcStatus } from "@legaltech/db";
+import { prisma, CalendarEventType, type DatajudProcStatus } from "@legaltech/db";
 import { createHash } from "node:crypto";
 import { decryptSecret } from "../crypto.js";
 import { fetchProcess } from "../adapters/datajud.js";
@@ -130,10 +130,10 @@ export async function syncCaseFromDatajud(caseId: string): Promise<SyncResult> {
       const kaseRow = await prisma.case.findUnique({ where: { id: caseId }, select: { responsibleLawyerId: true } });
       await prisma.hearing.create({
         data: {
-          caseId,
+          case: { connect: { id: caseId } },
           name: hearing.type,
           hearingDate: hearing.date,
-          lawyerId: kaseRow?.responsibleLawyerId ?? null,
+          lawyer: kaseRow?.responsibleLawyerId ? { connect: { id: kaseRow.responsibleLawyerId } } : undefined,
           autoCreated: true,
           notes: `Criada automaticamente do DataJud: "${m.descricao}"`,
           event: {
@@ -141,8 +141,8 @@ export async function syncCaseFromDatajud(caseId: string): Promise<SyncResult> {
               title: hearing.type,
               start: hearing.date,
               end: new Date(hearing.date.getTime() + 3600_000),
-              type: "AUDIENCIA",
-              caseId,
+              type: CalendarEventType.AUDIENCIA,
+              case: { connect: { id: caseId } },
             },
           },
         },

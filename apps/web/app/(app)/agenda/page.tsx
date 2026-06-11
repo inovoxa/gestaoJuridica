@@ -14,8 +14,8 @@ const TYPE_META: Record<string, { label: string; icon: typeof Landmark; cls: str
   OUTRO: { label: "Evento", icon: CalendarDays, cls: "text-muted bg-muted/10" },
 };
 
-function groupByDay(events: { start: Date }[]) {
-  const map = new Map<string, typeof events>();
+function groupByDay<T extends { start: Date }>(events: T[]) {
+  const map = new Map<string, T[]>();
   for (const e of events) {
     const key = e.start.toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "long" });
     if (!map.has(key)) map.set(key, []);
@@ -80,7 +80,7 @@ export default async function AgendaPage() {
               <h2 className="mb-2 font-serif text-sm font-semibold capitalize text-gold">{day}</h2>
               <div className="card divide-y divide-border/60">
                 {items.map((e) => {
-                  const meta = TYPE_META[e.type] ?? TYPE_META.OUTRO;
+                  const meta = TYPE_META[e.type] ?? TYPE_META.OUTRO!;
                   const Icon = meta.icon;
                   return (
                     <div key={e.id} className="flex items-center gap-4 p-4">

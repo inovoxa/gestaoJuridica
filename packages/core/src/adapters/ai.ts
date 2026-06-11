@@ -93,7 +93,7 @@ export async function complete(req: AiRequest): Promise<AiResponse> {
       : req.provider === "OPENROUTER"
         ? "https://openrouter.ai/api/v1/chat/completions"
         : "https://api.openai.com/v1/chat/completions";
-  const extraHeaders =
+  const extraHeaders: Record<string, string> =
     req.provider === "OPENROUTER"
       ? { "HTTP-Referer": "https://inovoxa.com.br", "X-Title": "LegalTech BR" }
       : {};

@@ -1,6 +1,6 @@
 "use server";
 
-import { prisma } from "@legaltech/db";
+import { prisma, CalendarEventType } from "@legaltech/db";
 import { requireSession } from "@/lib/session";
 import { pushEventToGoogle, deleteEventFromGoogle } from "@/lib/google";
 import { revalidatePath } from "next/cache";
@@ -21,19 +21,19 @@ export async function createHearing(formData: FormData) {
   // Cria audiência + evento de calendário vinculado (sync local audiência↔evento).
   const hearing = await prisma.hearing.create({
     data: {
-      caseId,
+      case: { connect: { id: caseId } },
       name,
       hearingDate,
       durationHours,
-      lawyerId: caseRow?.responsibleLawyerId ?? null,
+      lawyer: caseRow?.responsibleLawyerId ? { connect: { id: caseRow.responsibleLawyerId } } : undefined,
       notes: String(formData.get("notes") ?? "").trim() || null,
       event: {
         create: {
           title: `Audiência: ${name}`,
           start: hearingDate,
           end: new Date(hearingDate.getTime() + durationHours * 3600 * 1000),
-          type: "AUDIENCIA",
-          caseId,
+          type: CalendarEventType.AUDIENCIA,
+          case: { connect: { id: caseId } },
         },
       },
     },

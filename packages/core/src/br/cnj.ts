@@ -31,7 +31,15 @@ export function parseCnj(value: string): CnjParts | null {
   const match = value.trim().match(CNJ_REGEX);
   if (match) {
     const [, sequencial, digito, ano, segmento, tribunal, origem] = match;
-    return { sequencial, digito, ano, segmento, tribunal, origem };
+    // Grupos obrigatórios no regex: garantidos quando há match.
+    return {
+      sequencial: sequencial!,
+      digito: digito!,
+      ano: ano!,
+      segmento: segmento!,
+      tribunal: tribunal!,
+      origem: origem!,
+    };
   }
   // fallback: 20 dígitos puros
   const digits = onlyDigits(value);
