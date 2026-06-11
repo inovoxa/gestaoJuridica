@@ -59,7 +59,7 @@ services:
         - "traefik.enable=true"
         - "traefik.docker.network=${TRAEFIK_NETWORK:-traefik-public}"
         - "traefik.http.routers.legaltech.rule=Host(`${APP_DOMAIN}`)"
-        - "traefik.http.routers.legaltech.entrypoints=websecure"
+        - "traefik.http.routers.legaltech.entrypoints=${TRAEFIK_ENTRYPOINT:-websecure}"
         - "traefik.http.routers.legaltech.tls=true"
         - "traefik.http.routers.legaltech.tls.certresolver=${TRAEFIK_CERTRESOLVER:-letsencrypt}"
         - "traefik.http.services.legaltech.loadbalancer.server.port=3000"
