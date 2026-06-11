@@ -2,10 +2,11 @@ import { prisma } from "@legaltech/db";
 import { requireRole } from "@/lib/session";
 import { PageHeader } from "@/components/ui/page-header";
 import { Field, FormActions } from "@/components/ui/form";
+import Link from "next/link";
 import { ChatwootTest } from "@/components/chatwoot-test";
 import { Select } from "@/components/ui/form";
 import { saveChatwootConfig, saveDatajudConfig, saveAiConfig } from "./actions";
-import { MessagesSquare, CalendarDays, Scale, Sparkles } from "lucide-react";
+import { MessagesSquare, CalendarDays, Scale, Sparkles, Building2, ChevronRight } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -20,7 +21,19 @@ export default async function ConfigPage() {
 
   return (
     <div className="max-w-2xl space-y-6">
-      <PageHeader title="Configurações" subtitle="Integrações do escritório" />
+      <PageHeader title="Configurações" subtitle="Escritório e integrações" />
+
+      {/* Dados do escritório / site */}
+      <Link href="/config/escritorio" className="card flex items-center gap-3 p-5 transition-colors hover:border-gold/40">
+        <div className="rounded-lg bg-gold/10 p-2 text-gold">
+          <Building2 className="h-5 w-5" strokeWidth={1.75} />
+        </div>
+        <div className="flex-1">
+          <div className="font-serif text-base font-semibold text-foreground">Dados do escritório</div>
+          <div className="text-sm text-muted">Identidade, endereço e conteúdo do site público</div>
+        </div>
+        <ChevronRight className="h-4 w-4 text-muted" />
+      </Link>
 
       {/* Chatwoot */}
       <div className="card p-6">
