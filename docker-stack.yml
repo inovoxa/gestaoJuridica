@@ -57,7 +57,7 @@ services:
         condition: any
       labels:
         - "traefik.enable=true"
-        - "traefik.docker.network=traefik-public"
+        - "traefik.docker.network=${TRAEFIK_NETWORK:-traefik-public}"
         - "traefik.http.routers.legaltech.rule=Host(`${APP_DOMAIN}`)"
         - "traefik.http.routers.legaltech.entrypoints=websecure"
         - "traefik.http.routers.legaltech.tls=true"
@@ -106,8 +106,11 @@ services:
         condition: any
 
 networks:
+  # Rede overlay onde o Traefik está conectado. Defina TRAEFIK_NETWORK com o
+  # nome REAL da rede do seu Traefik (ex.: traefik-public, traefik_proxy, network_public...).
   traefik-public:
     external: true
+    name: ${TRAEFIK_NETWORK:-traefik-public}
   internal:
     driver: overlay
 

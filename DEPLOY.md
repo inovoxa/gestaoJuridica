@@ -7,11 +7,22 @@ O sistema roda como **uma imagem única** (`Dockerfile`) que serve tanto a aplic
 - Traefik já rodando no swarm, com:
   - provider do Swarm habilitado,
   - um entrypoint `websecure` (443) e um **certresolver** (ex.: `letsencrypt`).
-- Rede overlay externa do Traefik (ajuste o nome se o seu for diferente de `traefik-public`):
+- O serviço `web` precisa estar na **mesma rede overlay do Traefik**. Descubra o nome dela:
 
 ```bash
-docker network create --driver overlay --attachable traefik-public
+docker network ls --filter driver=overlay
+# ou veja a rede que o próprio Traefik usa:
+docker service inspect traefik --format '{{json .Spec.TaskTemplate.Networks}}'
 ```
+
+  - **Já existe** (ex.: `traefik_proxy`, `network_public`)? Use-a definindo no `.env`:
+    `TRAEFIK_NETWORK=nome_real_da_rede` (não precisa editar o YAML).
+  - **Não existe?** Crie e configure o Traefik para usá-la:
+    ```bash
+    docker network create --driver overlay --attachable traefik-public
+    ```
+
+> ⚠️ Erro `network "traefik-public" is declared as external, but could not be found`: significa que a rede informada não existe no swarm. Ajuste `TRAEFIK_NETWORK` para o nome correto **ou** crie a rede.
 
 ## 2. Imagem da aplicação
 
