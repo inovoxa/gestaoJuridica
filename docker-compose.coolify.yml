@@ -1,0 +1,131 @@
+# LegalTech BR — deploy no Coolify (Docker Compose).
+#
+# Diferente do docker-stack.yml (Swarm + Traefik manual), aqui o Coolify:
+#   - faz o build da imagem a partir deste repositório (sem precisar do GHCR);
+#   - gerencia o proxy/TLS sozinho (sem labels Traefik manuais);
+#   - gera domínio e segredos via "magic variables" (SERVICE_*).
+#
+# Como usar:
+#   1. Coolify → + New → Resource → Docker Compose (Git) → aponte o repo
+#      github.com/inovoxa/gestaoJuridica e selecione este arquivo
+#      (docker-compose.coolify.yml).
+#   2. Em "Domains" o Coolify atribui um domínio (sslip.io) ao serviço web;
+#      troque pelo seu domínio real se quiser (ex.: advocaciaoliveira.cloud).
+#   3. Deploy. Na 1ª subida o web aplica o schema e semeia os dados demo.
+#   4. Login admin: admin@silva.adv.br / admin123 (TROQUE depois).
+#      Depois mude RUN_SEED para "false" e redeploy.
+
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: ["web"]
+    environment:
+      # Coolify gera o domínio do serviço web (porta 3000) e injeta
+      # SERVICE_FQDN_WEB / SERVICE_URL_WEB para reuso abaixo.
+      - SERVICE_FQDN_WEB_3000
+      - NODE_ENV=production
+      - DATABASE_URL=postgresql://legaltech:${SERVICE_PASSWORD_POSTGRES}@postgres:5432/legaltech?schema=public
+      - REDIS_URL=redis://redis:6379
+      # Auth.js / NextAuth atrás de proxy
+      - AUTH_SECRET=${SERVICE_BASE64_64_AUTHSECRET}
+      - AUTH_URL=${SERVICE_URL_WEB}
+      - APP_URL=${SERVICE_URL_WEB}
+      - AUTH_TRUST_HOST=true
+      # Cripto de credenciais (tokens Chatwoot/IA/DataJud/Google) em repouso
+      - CREDENTIALS_ENCRYPTION_KEY=${SERVICE_BASE64_64_ENCKEY}
+      # Migração + seed na 1ª subida (depois mude RUN_SEED para false)
+      - RUN_MIGRATIONS=true
+      - RUN_SEED=${RUN_SEED:-true}
+      # Storage de documentos (local | s3 | gdrive)
+      - STORAGE_DRIVER=${STORAGE_DRIVER:-local}
+      - STORAGE_LOCAL_PATH=/data/storage
+      - DOC_DELETION_DELAY_DAYS=${DOC_DELETION_DELAY_DAYS:-30}
+      # Google Calendar + Drive (opcional)
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET:-}
+      - GOOGLE_REDIRECT_URI=${SERVICE_URL_WEB}/api/google/callback
+      # S3/MinIO (quando STORAGE_DRIVER=s3)
+      - S3_ENDPOINT=${S3_ENDPOINT:-}
+      - S3_REGION=${S3_REGION:-us-east-1}
+      - S3_BUCKET=${S3_BUCKET:-legaltech-docs}
+      - S3_ACCESS_KEY_ID=${S3_ACCESS_KEY_ID:-}
+      - S3_SECRET_ACCESS_KEY=${S3_SECRET_ACCESS_KEY:-}
+      - S3_FORCE_PATH_STYLE=${S3_FORCE_PATH_STYLE:-true}
+    volumes:
+      - storage:/data/storage
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3000/ >/dev/null 2>&1 || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: ["worker"]
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgresql://legaltech:${SERVICE_PASSWORD_POSTGRES}@postgres:5432/legaltech?schema=public
+      - REDIS_URL=redis://redis:6379
+      - CREDENTIALS_ENCRYPTION_KEY=${SERVICE_BASE64_64_ENCKEY}
+      - STORAGE_DRIVER=${STORAGE_DRIVER:-local}
+      - STORAGE_LOCAL_PATH=/data/storage
+      - DOC_DELETION_DELAY_DAYS=${DOC_DELETION_DELAY_DAYS:-30}
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET:-}
+      - S3_ENDPOINT=${S3_ENDPOINT:-}
+      - S3_REGION=${S3_REGION:-us-east-1}
+      - S3_BUCKET=${S3_BUCKET:-legaltech-docs}
+      - S3_ACCESS_KEY_ID=${S3_ACCESS_KEY_ID:-}
+      - S3_SECRET_ACCESS_KEY=${S3_SECRET_ACCESS_KEY:-}
+      - S3_FORCE_PATH_STYLE=${S3_FORCE_PATH_STYLE:-true}
+    volumes:
+      - storage:/data/storage
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      - POSTGRES_USER=legaltech
+      - POSTGRES_PASSWORD=${SERVICE_PASSWORD_POSTGRES}
+      - POSTGRES_DB=legaltech
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U legaltech"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redisdata:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  pgdata:
+  redisdata:
+  storage:
